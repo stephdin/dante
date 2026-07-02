@@ -2,6 +2,8 @@
 
 Dante is a chat interface for local and remote LLMs with support for [MCP](https://modelcontextprotocol.io) servers, focused on an elegant, distraction-free UX.
 
+![screenshot](/screenshot.png)
+
 ## Features
 
 - **Local & remote providers** — works with any OpenAI-compatible endpoint. Remote providers (e.g. OpenCode Go) are wired up; local runtimes such as llama.cpp are configured and ready to be connected.
