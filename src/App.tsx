@@ -1,68 +1,40 @@
 import {
   ActionIcon,
   AppShell,
-  Box,
   Burger,
-  Container,
   Group,
   Menu,
   Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { useEffect, useRef } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import {
   IconClipboard,
   IconDotsVertical,
   IconDownload,
+  IconFlame,
   IconPencil,
   IconStar,
-  IconTrash,
 } from "@tabler/icons-react";
 
-import { AgentMessage, DateDivider, UserMessage } from "./components/Message.tsx";
-import { ChatInput } from "./components/ChatInput.tsx";
 import { ChatNavbar } from "./components/ChatNavbar.tsx";
+import { ChatOverviewPage } from "./pages/ChatOverviewPage.tsx";
+import { ConversationPage } from "./pages/ConversationPage.tsx";
+import { NewConversationPage } from "./pages/NewConversationPage.tsx";
+import { SettingsPage } from "./pages/SettingsPage.tsx";
 
 function App() {
-  const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
-  const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Anchor the message list to the bottom so the latest message stays visible
-  // above the composer. Re-run this effect when messages become dynamic.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el) {
-      el.scrollTo({ top: el.scrollHeight });
-    }
-  }, []);
+  const [navOpened, { toggle: toggleNav, close: closeNav }] = useDisclosure();
+  const { pathname } = useLocation();
+  // The conversation actions menu only makes sense on an open conversation.
+  // Keep its slot reserved (visibility hidden) so the title stays centered.
+  const showConvMenu = pathname.startsWith("/conversation/");
 
   return (
-    <AppShell
-      padding={0}
-      header={{ height: 48 }}
-      navbar={{
-        width: 260,
-        breakpoint: "sm",
-        collapsed: { mobile: !mobileOpened, desktop: !desktopOpened },
-      }}
-    >
-      <AppShell.Header>
+    <AppShell padding={0} header={{ height: 48 }}>
+      <AppShell.Header style={{ borderBottom: 0 }}>
         <Group h="100%" px="md" justify="space-between">
-          <Group gap="sm">
-            <Burger
-              opened={mobileOpened}
-              onClick={toggleMobile}
-              hiddenFrom="sm"
-              size="sm"
-            />
-            <Burger
-              opened={desktopOpened}
-              onClick={toggleDesktop}
-              visibleFrom="sm"
-              size="sm"
-            />
-          </Group>
+          <Burger opened={navOpened} onClick={toggleNav} size="sm" />
 
           <Title order={4}>Dante</Title>
 
@@ -72,97 +44,47 @@ function App() {
                 variant="subtle"
                 color="gray"
                 size="md"
-                style={{ visibility: mobileOpened ? "hidden" : undefined }}
+                style={{ visibility: showConvMenu ? undefined : "hidden" }}
               >
                 <IconDotsVertical size={16} />
               </ActionIcon>
             </Menu.Target>
             <Menu.Dropdown>
               <Menu.Item leftSection={<IconPencil size={14} />}>
-                Rename conversation
+                Unterhaltung umbenennen
               </Menu.Item>
               <Menu.Item leftSection={<IconClipboard size={14} />}>
-                Copy conversation
+                Unterhaltung kopieren
               </Menu.Item>
               <Menu.Item leftSection={<IconStar size={14} />}>
-                Show starred messages
+                Markierte Nachrichten anzeigen
               </Menu.Item>
               <Menu.Item leftSection={<IconDownload size={14} />}>
-                Export
+                Exportieren
               </Menu.Item>
               <Menu.Divider />
               <Menu.Item
-                leftSection={<IconTrash size={14} />}
+                leftSection={<IconFlame size={14} />}
                 color="red"
               >
-                Delete chat
+                Chat löschen
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
         </Group>
       </AppShell.Header>
 
-      <ChatNavbar />
+      <ChatNavbar opened={navOpened} onClose={closeNav} />
 
-      <AppShell.Main
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          position: "relative",
-        }}
-      >
-        <Box
-          ref={scrollRef}
-          style={{
-            flex: "1 1 0",
-            minHeight: 0,
-            overflowY: "auto",
-            WebkitOverflowScrolling: "touch",
-            // Reserve room at the bottom so the last messages can scroll past
-            // the floating composer instead of being hidden behind it.
-            paddingBottom: 160,
-          }}
-        >
-          <Container size="md" p="md">
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--mantine-spacing-xl)" }}>
-              <AgentMessage text="Hi! I'm Dante, your coding agent. Ask me anything about TypeScript, React, or your project." />
-              <UserMessage text="Can you explain how async / await works in TypeScript?" />
-              <AgentMessage text="Sure! `async` marks a function as always returning a Promise, while `await` pauses execution inside an `async` function until that Promise settles. It lets you write asynchronous code that reads top-to-bottom like synchronous code." />
-              <DateDivider label="Jun 28" />
-              <UserMessage text="Nice. And how does error handling work with it?" />
-              <AgentMessage
-                starred
-                text={"You wrap the awaited call in a try / catch block. If the Promise rejects, the rejection becomes a thrown error you can catch locally. To avoid swallowing errors, rethrow or surface them to the caller.\n\nExample:\ntry {\n  const data = await fetch('/api');\n} catch (err) {\n  console.error('Request failed', err);\n  throw err;\n}"}
-              />
-              <UserMessage text="What about running promises in parallel?" />
-              <AgentMessage
-                text={"Use Promise.all to kick off independent promises together and await them as a group. It resolves once all succeed, or rejects on the first failure.\n\nconst [a, b] = await Promise.all([fetchUser(), fetchPosts()]);"}
-              />
-              <UserMessage text="Got it. One last thing — when should I use top-level await?" />
-              <AgentMessage text="Top-level await only works in ES modules, and it blocks module evaluation until the promise resolves. It's handy for app startup config or initializing a module from an async source, but overusing it slows down cold loads. Use sparingly." />
-              <DateDivider label="Yesterday" />
-              <UserMessage text="Coming back to this — does Promise.all short-circuit on the first rejection?" />
-              <AgentMessage
-                last
-                text="Yes. Promise.all rejects as soon as one promise rejects, but the other promises keep running (they aren't cancelled). If you want to wait for all of them regardless of failures, use Promise.allSettled instead."
-              />
-            </div>
-          </Container>
-        </Box>
-
-        <Box
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            pointerEvents: "none",
-          }}
-        >
-          <Box p="md" style={{ pointerEvents: "auto" }}>
-            <ChatInput />
-          </Box>
-        </Box>
+      <AppShell.Main style={{ display: "flex", flexDirection: "column" }}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/new" replace />} />
+          <Route path="/new" element={<NewConversationPage />} />
+          <Route path="/chats" element={<ChatOverviewPage />} />
+          <Route path="/conversation/:id" element={<ConversationPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/new" replace />} />
+        </Routes>
       </AppShell.Main>
     </AppShell>
   );

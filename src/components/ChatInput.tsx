@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import {
   ActionIcon,
   Button,
@@ -9,37 +9,55 @@ import {
   Stack,
   Textarea,
 } from "@mantine/core";
-import {
-  IconBolt,
-  IconBrain,
-  IconCheck,
-  IconSparkles,
-} from "@tabler/icons-react";
+import { IconCheck } from "@tabler/icons-react";
 
-type Model = {
-  value: string;
-  label: string;
-  Icon: typeof IconSparkles;
-};
+import { useConfig } from "../api/queries.ts";
+import { presetIcon } from "../config/presetIcons.ts";
 
-// Each model is paired with a distinct icon; the active model's icon is what
-// the ActionIcon displays. Add a new entry here to surface another model.
-const MODELS: Model[] = [
-  { value: "pro", label: "Dante Pro", Icon: IconSparkles },
-  { value: "fast", label: "Dante Fast", Icon: IconBolt },
-  { value: "reasoning", label: "Dante Reasoning", Icon: IconBrain },
-];
+export function ChatInput({
+  onSend,
+  onStop,
+  busy,
+}: {
+  onSend?: (text: string, presetId: string | undefined) => void;
+  onStop?: () => void;
+  busy?: boolean;
+}) {
+  const { data: config } = useConfig();
+  const presets = config?.presets ?? [];
+  const [value, setValue] = useState("");
+  const [presetId, setPresetId] = useState<string | null>(null);
+  // Fall back to the default preset, then to the first available one.
+  const preset =
+    presets.find((p) => p.id === presetId) ??
+    presets.find((p) => p.default) ??
+    presets[0];
+  const CurrentIcon = preset ? presetIcon(preset.iconId) : presetIcon("sparkles");
 
-export function ChatInput() {
-  const [model, setModel] = useState(MODELS[0]);
-  const CurrentIcon = model.Icon;
+  function submit() {
+    const text = value.trim();
+    if (!text || busy) return;
+    onSend?.(text, preset?.id);
+    setValue("");
+  }
+
+  // Enter sends; Shift+Enter inserts a newline.
+  function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      submit();
+    }
+  }
 
   return (
     <Container size="md" p={0}>
       <Paper radius="lg" shadow="md" p="md" withBorder>
         <Stack gap="sm">
           <Textarea
-            placeholder="Write your prompt here"
+            value={value}
+            onChange={(e) => setValue(e.currentTarget.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Schreibe eine Nachricht..."
             autosize
             minRows={2}
             maxRows={7}
@@ -52,29 +70,43 @@ export function ChatInput() {
                   variant="subtle"
                   color="gray"
                   size="lg"
-                  title="Select model"
+                  title="Preset wählen"
                 >
                   <CurrentIcon size={18} color="grey" />
                 </ActionIcon>
               </Menu.Target>
               <Menu.Dropdown>
-                {MODELS.map(({ value, label, Icon }) => (
-                  <Menu.Item
-                    key={value}
-                    leftSection={<Icon size={16} />}
-                    rightSection={
-                      value === model.value ? <IconCheck size={14} /> : null
-                    }
-                    onClick={() => setModel(MODELS.find((m) => m.value === value) ?? model)}
-                  >
-                    {label}
-                  </Menu.Item>
-                ))}
+                {presets.map((p) => {
+                  const ItemIcon = presetIcon(p.iconId);
+                  return (
+                    <Menu.Item
+                      key={p.id}
+                      leftSection={<ItemIcon size={16} />}
+                      rightSection={
+                        p.id === preset?.id ? <IconCheck size={14} /> : null
+                      }
+                      onClick={() => setPresetId(p.id)}
+                    >
+                      {p.name}
+                    </Menu.Item>
+                  );
+                })}
               </Menu.Dropdown>
             </Menu>
-            <Button color="primary" autoContrast>
-              Send
-            </Button>
+            {busy && onStop ? (
+              <Button color="primary" autoContrast variant="light" onClick={onStop}>
+                Stopp
+              </Button>
+            ) : (
+              <Button
+                color="primary"
+                autoContrast
+                onClick={submit}
+                disabled={busy || !value.trim()}
+              >
+                Senden
+              </Button>
+            )}
           </Group>
         </Stack>
       </Paper>

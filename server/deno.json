@@ -1,0 +1,12 @@
+{
+  "tasks": {
+    "dev": "deno run --allow-net --allow-read --allow-env --allow-sys --watch main.ts",
+    "start": "deno run --allow-net --allow-env --env-file --allow-sys main.ts"
+  },
+  "imports": {
+    "hono": "jsr:@hono/hono@^4",
+    "hono/cors": "jsr:@hono/hono@^4/cors",
+    "ai": "npm:ai@^7.0.0",
+    "@ai-sdk/openai-compatible": "npm:@ai-sdk/openai-compatible@^3.0.0"
+  }
+}

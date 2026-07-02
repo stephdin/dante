@@ -1,0 +1,39 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { EmptyState } from "@mantine/core";
+import { IconSparkles } from "@tabler/icons-react";
+
+import { ChatLayout } from "../components/ChatLayout.tsx";
+
+export function NewConversationPage() {
+  const navigate = useNavigate();
+  const [creating, setCreating] = useState(false);
+
+  // On the first send, create an (empty) conversation on the server, then hand
+  // off to the conversation page with the message as pending router state.
+  async function handleSend(text: string, presetId: string | undefined) {
+    setCreating(true);
+    try {
+      const res = await fetch("/api/conversations", { method: "POST" });
+      if (!res.ok) throw new Error("create failed");
+      const { id } = (await res.json()) as { id: string };
+      navigate(`/conversation/${id}`, { state: { pendingMessage: text, presetId } });
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <ChatLayout centered onSend={handleSend} busy={creating}>
+      <EmptyState>
+        <EmptyState.Indicator>
+          <IconSparkles />
+        </EmptyState.Indicator>
+        <EmptyState.Title>Neue Unterhaltung</EmptyState.Title>
+        <EmptyState.Description>
+          Schreibe eine Nachricht unten, <br /> um die Unterhaltung zu beginnen.
+        </EmptyState.Description>
+      </EmptyState>
+    </ChatLayout>
+  );
+}

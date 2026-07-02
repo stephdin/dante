@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { MantineProvider } from "@mantine/core";
+import { BrowserRouter } from "react-router-dom";
 import "@mantine/core/styles.css";
 
 import { theme } from "./theme.ts";
@@ -8,8 +9,10 @@ import App from "./App.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <MantineProvider theme={theme} forceColorScheme="dark">
-      <App />
-    </MantineProvider>
+    <BrowserRouter>
+      <MantineProvider theme={theme} defaultColorScheme="auto">
+        <App />
+      </MantineProvider>
+    </BrowserRouter>
   </StrictMode>,
 );
