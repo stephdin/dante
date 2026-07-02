@@ -56,9 +56,10 @@ function ConversationView({ id }: { id: string }) {
   // Auto-send a pending first message routed in from /new, then clear the
   // router state so a refresh doesn't resend.
   useEffect(() => {
-    const state = location.state as
-      | { pendingMessage?: string; presetId?: string }
-      | null;
+    const state = location.state as {
+      pendingMessage?: string;
+      presetId?: string;
+    } | null;
     if (!state?.pendingMessage || sentRef.current || status !== "ready") return;
     sentRef.current = true;
     sendMessage(
@@ -69,10 +70,10 @@ function ConversationView({ id }: { id: string }) {
   }, [location.state, location.pathname, status, sendMessage, id, navigate]);
 
   // Keep the latest message in view as new chunks stream in.
-  useEffect(() => {
+/*   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight });
-  }, [messages]);
+  }, [messages]); */
 
   const busy = status === "submitted" || status === "streaming";
 

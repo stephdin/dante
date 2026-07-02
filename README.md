@@ -1,34 +1,37 @@
-# React + TypeScript + Vite
+# Dante
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Dante is a chat interface for local and remote LLMs with support for [MCP](https://modelcontextprotocol.io) servers, focused on an elegant, distraction-free UX.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Local & remote providers** — works with any OpenAI-compatible endpoint. Remote providers (e.g. OpenCode Go) are wired up; local runtimes such as llama.cpp are configured and ready to be connected.
+- **MCP servers** — register tool servers (stdio or SSE) and attach them to presets so an agent can call tools like Filesystem or GitHub. The config and UI are in place; full tool-call integration is on the roadmap.
+- **Presets** — bundle a model, an assistant (system prompt), and a set of MCP servers into a reusable preset (e.g. Dante Pro, Dante Fast, Dante Reasoning).
+- **Streaming + reasoning** — responses stream token-by-token, with the model's thinking shown in a collapsible block.
+- **Elegant UX** — Mantine-based UI with light/dark/auto theming, conversation history, and a composer with Enter-to-send and Shift+Enter for a newline.
 
-## React Compiler
+## Status
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+Dante is in an early prototype phase: data is held in-memory, there is no auth, and a few pieces (MCP tool-calling, the local llama.cpp backend, persisting config edits) are designed and configured but not yet wired end-to-end. See `rfcs/26-07-02_backend_notes.md` for the full picture and roadmap.
 
-Note: This will impact Vite dev & build performances.
+## Tech stack
 
-## Expanding the Oxlint configuration
+- **Frontend:** React 19, Vite, Mantine 9, Vercel AI SDK (`@ai-sdk/react`)
+- **Backend:** Deno, Hono, Vercel AI SDK (`ai`, `@ai-sdk/openai-compatible`)
+- **Shared types** between client and server via a `@shared` alias
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## Getting started
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+# 1. Start the backend (Deno + Hono on :3000). The chat endpoint requires
+#    OPENCODE_API_KEY in the environment.
+cd server
+export OPENCODE_API_KEY=<your key>
+deno task dev
+
+# 2. Start the frontend (Vite on :5173)
+cd ..
+pnpm dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Open http://localhost:5173, start a new conversation, and send a message to see it stream.
