@@ -6,6 +6,7 @@ import {
   Group,
   Paper,
   Text,
+  Typography,
   UnstyledButton,
 } from "@mantine/core";
 import {
@@ -17,7 +18,10 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import type { CSSProperties } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useMessageActions } from "./useMessageActions.ts";
+import classes from "./AgentMessage.module.css";
 
 export function AgentMessage({
   text,
@@ -47,7 +51,7 @@ export function AgentMessage({
       <Paper
         p={starred ? "sm" : 0}
         radius="md"
-        style={{ whiteSpace: "pre-wrap", ...starredStyle }}
+        style={starredStyle}
       >
         {hasReasoning && (
           <Box mb="xs">
@@ -79,7 +83,9 @@ export function AgentMessage({
             </Collapse>
           </Box>
         )}
-        <Text size="md">{text}</Text>
+        <Typography className={classes.markdown}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+        </Typography>
       </Paper>
       <Group justify="flex-start" align="center" gap={4} mt="xs">
         {starred && (

@@ -34,10 +34,6 @@ export const theme = mergeMantineTheme(DEFAULT_THEME, themeOverride);
 // without adding a separate CSS file.
 export const cssVariablesResolver: CSSVariablesResolver = () => ({
   variables: {},
-  light: {
-    "--mantine-color-body": "#ffffff",
-  },
-  dark: {
-    "--mantine-color-body": "#111111",
-  },
+  light: { "--mantine-color-body": "#ffffff" },
+  dark: { "--mantine-color-body": "#151515" },
 });
