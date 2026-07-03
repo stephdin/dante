@@ -59,7 +59,7 @@ export function ChatInput({
             onKeyDown={handleKeyDown}
             placeholder="Schreibe eine Nachricht..."
             autosize
-            minRows={2}
+            minRows={1}
             maxRows={7}
             variant="unstyled"
           />

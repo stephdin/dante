@@ -2,8 +2,9 @@
   "version": "5",
   "specifiers": {
     "jsr:@hono/hono@4": "4.9.9",
-    "npm:@ai-sdk/openai-compatible@3": "3.0.3_zod@4.4.3",
-    "npm:ai@7": "7.0.11_zod@4.4.3"
+    "npm:@ai-sdk/openai-compatible@3": "3.0.3_zod@3.25.76",
+    "npm:ai@7": "7.0.11_zod@3.25.76",
+    "npm:zod@3": "3.25.76"
   },
   "jsr": {
     "@hono/hono@4.9.9": {
@@ -11,7 +12,7 @@
     }
   },
   "npm": {
-    "@ai-sdk/gateway@4.0.8_zod@4.4.3": {
+    "@ai-sdk/gateway@4.0.8_zod@3.25.76": {
       "integrity": "sha512-esHzojMp+LllqOnEu6sYa6NKOmPcE5UObPV61LE6L2QAzCH6WHMgTS+Q/HF5HU3lVUWsHtkDzN7TNqMfv/ecCg==",
       "dependencies": [
         "@ai-sdk/provider",
@@ -20,7 +21,7 @@
         "zod"
       ]
     },
-    "@ai-sdk/openai-compatible@3.0.3_zod@4.4.3": {
+    "@ai-sdk/openai-compatible@3.0.3_zod@3.25.76": {
       "integrity": "sha512-+mDaUS0q460pVs3oW2/Ps/vj4M2EZnYr1v6ng8TmzxnZPrYBuK7PGQIfckqFdWIdUI/gG8BXcaf8vukLKyGU6Q==",
       "dependencies": [
         "@ai-sdk/provider",
@@ -28,7 +29,7 @@
         "zod"
       ]
     },
-    "@ai-sdk/provider-utils@5.0.3_zod@4.4.3": {
+    "@ai-sdk/provider-utils@5.0.3_zod@3.25.76": {
       "integrity": "sha512-El0JOXXGcHFe6+owJ1UV0VgB9XtdivP8vcZni+rUIt6lt+cBHCnUdddaA6LE2avJGJ5AD0uXSY+uAvRL2tSvgw==",
       "dependencies": [
         "@ai-sdk/provider",
@@ -53,7 +54,7 @@
     "@workflow/serde@4.1.0": {
       "integrity": "sha512-pav4F2BoirECWR7Nf1TKt+2eETcBj7jj4cBefQ8VXQCA6NPkaKeLfj/zMgi+3zYV5ZIBT4GuUiphsj0/b9hPQQ=="
     },
-    "ai@7.0.11_zod@4.4.3": {
+    "ai@7.0.11_zod@3.25.76": {
       "integrity": "sha512-ecCtume1NKJG/8oIkV8G26KL9jmFJRx6+Gjx2260FcDZqIUGPiF1uBoNeGy4S1vxbHmFxUul4D7axqiXZZ1XuA==",
       "dependencies": [
         "@ai-sdk/gateway",
@@ -68,15 +69,16 @@
     "json-schema@0.4.0": {
       "integrity": "sha512-es94M3nTIfsEPisRafak+HDLfHXnKBhV3vU5eqPcS3flIWqcxJWgXHXiey3YrpaNsanY5ei1VoYEbOzijuq9BA=="
     },
-    "zod@4.4.3": {
-      "integrity": "sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ=="
+    "zod@3.25.76": {
+      "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="
     }
   },
   "workspace": {
     "dependencies": [
       "jsr:@hono/hono@4",
       "npm:@ai-sdk/openai-compatible@3",
-      "npm:ai@7"
+      "npm:ai@7",
+      "npm:zod@3"
     ]
   }
 }
