@@ -13,7 +13,6 @@ import {
   Text,
   Textarea,
   ThemeIcon,
-  Title,
   useMantineColorScheme,
 } from "@mantine/core";
 import {
@@ -172,8 +171,6 @@ export function SettingsPage() {
   return (
     <Container size="md" p="md" w="100%">
       <Stack gap="lg">
-        <Title order={3}>Einstellungen</Title>
-
         {/* Erscheinungsbild */}
         <SectionHeader icon={<IconSun size={16} />} title="Erscheinungsbild" />
         <Group justify="space-between" align="center">

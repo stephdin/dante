@@ -7,7 +7,6 @@ import {
   Paper,
   Stack,
   Text,
-  Title,
 } from "@mantine/core";
 
 import { useConversations } from "../api/queries.ts";
@@ -19,8 +18,6 @@ export function ChatOverviewPage() {
   return (
     <Container size="md" p="md" w="100%">
       <Stack gap="lg">
-        <Title order={3}>Chats</Title>
-
         {error ? (
           <Text size="sm" c="red" ta="center">
             Verbindung zum Server fehlgeschlagen.

@@ -23,6 +23,14 @@ import { ConversationPage } from "./pages/ConversationPage.tsx";
 import { NewConversationPage } from "./pages/NewConversationPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
 
+function getPageTitle(pathname: string): string {
+  if (pathname === "/new") return "Dante";
+  if (pathname === "/chats") return "Chats";
+  if (pathname === "/settings") return "Einstellungen";
+  if (pathname.startsWith("/conversation/")) return "";
+  return "Dante";
+}
+
 function App() {
   const [navOpened, { toggle: toggleNav, close: closeNav }] = useDisclosure();
   const { pathname } = useLocation();
@@ -36,7 +44,7 @@ function App() {
         <Group h="100%" px="md" justify="space-between">
           <Burger opened={navOpened} onClick={toggleNav} size="sm" />
 
-          <Title order={4}></Title>
+          <Title order={4}>{getPageTitle(pathname)}</Title>
 
           <Menu position="bottom-end" withinPortal>
             <Menu.Target>
