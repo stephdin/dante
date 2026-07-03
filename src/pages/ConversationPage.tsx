@@ -14,7 +14,7 @@ import {
   useConversationChat,
 } from "../api/useChat.ts";
 import { buildChatItems } from "../utils/groupMessages.ts";
-import type { Message } from "@shared/types.ts";
+import type { Message, MessageStats } from "@shared/types.ts";
 
 export function ConversationPage() {
   const { id } = useParams();
@@ -82,14 +82,20 @@ function ConversationView({ id }: { id: string }) {
   }
 
   const items = buildChatItems(
-    messages.map((m) => ({
-      id: m.id,
-      role: m.role as "user" | "assistant",
-      text: uiMessageText(m),
-      reasoning: uiMessageReasoning(m),
-      createdAt: messageCreatedAt(m),
-      starred: (m.metadata as { starred?: boolean } | undefined)?.starred,
-    })),
+    messages.map((m) => {
+      const meta = m.metadata as
+        | { starred?: boolean; stats?: MessageStats }
+        | undefined;
+      return {
+        id: m.id,
+        role: m.role as "user" | "assistant",
+        text: uiMessageText(m),
+        reasoning: uiMessageReasoning(m),
+        createdAt: messageCreatedAt(m),
+        starred: meta?.starred,
+        stats: meta?.stats,
+      };
+    }),
   );
 
   return (
@@ -120,6 +126,7 @@ function ConversationView({ id }: { id: string }) {
                 key={item.message.id}
                 text={item.message.text}
                 reasoning={item.message.reasoning}
+                stats={item.message.stats}
                 starred={item.message.starred}
                 last={item.last}
               />
@@ -145,13 +152,19 @@ function messageCreatedAt(m: UIMessage): string | Date {
 }
 
 // Map a persisted server message into the AI SDK's UIMessage shape, carrying the
-// `starred` flag through metadata so the highlight survives a round-trip.
+// `starred` flag and provider stats through metadata, and any stored reasoning
+// through a reasoning part so the thinking block survives a round-trip.
 function toUIMessage(m: Message): UIMessage {
+  const parts: UIMessage["parts"] = [];
+  if (m.reasoning) {
+    parts.push({ type: "reasoning", text: m.reasoning });
+  }
+  parts.push({ type: "text", text: m.text });
   return {
     id: m.id,
     role: m.role,
     createdAt: new Date(m.createdAt),
-    parts: [{ type: "text", text: m.text }],
-    metadata: { starred: m.starred ?? false },
+    parts,
+    metadata: { starred: m.starred ?? false, stats: m.stats },
   } as UIMessage;
 }

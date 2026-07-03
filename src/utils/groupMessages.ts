@@ -1,3 +1,4 @@
+import type { MessageStats } from "@shared/types.ts";
 import { formatRelativeDate } from "./formatDate.ts";
 
 // Minimal shape both the server's Message and the AI SDK's UIMessage can be
@@ -7,6 +8,7 @@ export type ChatMessage = {
   role: "user" | "assistant";
   text: string;
   reasoning?: string;
+  stats?: MessageStats;
   createdAt: string | Date;
   starred?: boolean;
 };

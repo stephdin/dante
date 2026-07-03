@@ -40,10 +40,32 @@ export type Preset = {
   default: boolean;
 };
 
+export type MessageStats = {
+  provider?: string;
+  modelId?: string;
+  responseId?: string;
+  finishReason?: string;
+  usage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    reasoningTokens?: number;
+    textTokens?: number;
+  };
+  performance?: {
+    responseTimeMs?: number;
+    timeToFirstOutputMs?: number;
+    outputTokensPerSecond?: number;
+    effectiveOutputTokensPerSecond?: number;
+  };
+};
+
 export type Message = {
   id: string;
   role: "user" | "assistant";
   text: string;
+  reasoning?: string; // model thinking, assistant-only
+  stats?: MessageStats; // provider-side token/performance metadata
   starred?: boolean;
   createdAt: string; // ISO 8601
 };
