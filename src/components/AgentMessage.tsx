@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActionIcon,
   Box,
@@ -30,17 +30,40 @@ export function AgentMessage({
   reasoning,
   stats,
   last = false,
+  reasoningStreaming = false,
   starred = false,
+  waiting = false,
 }: {
   text: string;
   reasoning?: string;
   stats?: MessageStats;
   last?: boolean;
+  reasoningStreaming?: boolean;
   starred?: boolean;
+  waiting?: boolean;
 }) {
   const { ref, actionsStyle } = useMessageActions();
   const [reasoningOpen, setReasoningOpen] = useState(false);
   const hasReasoning = !!reasoning && reasoning.trim().length > 0;
+
+  // Track reasoning duration client-side so we can show it immediately
+  // when reasoning finishes, rather than waiting for the full message
+  // stats (which only arrive on the finish part).
+  const reasoningStartAt = useRef<number | null>(null);
+  const [localReasoningTimeMs, setLocalReasoningTimeMs] = useState<number>();
+
+  useEffect(() => {
+    if (reasoningStreaming && reasoningStartAt.current == null) {
+      reasoningStartAt.current = performance.now();
+    }
+    if (!reasoningStreaming && reasoningStartAt.current != null) {
+      setLocalReasoningTimeMs(performance.now() - reasoningStartAt.current);
+      reasoningStartAt.current = null;
+    }
+  }, [reasoningStreaming]);
+
+  const reasoningTimeMs =
+    localReasoningTimeMs ?? stats?.performance?.reasoningTimeMs;
   const starredStyle: CSSProperties = starred
     ? {
         backgroundColor:
@@ -57,6 +80,11 @@ export function AgentMessage({
         radius="md"
         style={starredStyle}
       >
+        {waiting && (
+          <Text c="dimmed" fz="xs" mb="xs">
+            Warte auf Antwort…
+          </Text>
+        )}
         {hasReasoning && (
           <Box mb="xs">
             <UnstyledButton
@@ -72,7 +100,11 @@ export function AgentMessage({
                   transition: "transform 120ms ease",
                 }}
               />
-              Gedanken
+              {reasoningStreaming
+                ? "Denke nach…"
+                : reasoningTimeMs
+                  ? `Nachgedacht f\u00fcr ${formatDuration(reasoningTimeMs)}`
+                  : "Nachgedacht"}
             </UnstyledButton>
             <Collapse expanded={reasoningOpen}>
               <Text
@@ -197,6 +229,6 @@ function formatTokens(n: number): string {
 
 // Human-friendly durations: 1230ms → "1.2s", 230ms → "230ms".
 function formatDuration(ms: number): string {
-  if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`;
+  if (ms >= 1000) return `${(ms / 1000).toFixed(0)}s`;
   return `${Math.round(ms)}ms`;
 }

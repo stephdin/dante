@@ -11,6 +11,8 @@ export type ChatMessage = {
   stats?: MessageStats;
   createdAt: string | Date;
   starred?: boolean;
+  reasoningStreaming?: boolean;
+  waiting?: boolean;
 };
 
 export type ChatItem =

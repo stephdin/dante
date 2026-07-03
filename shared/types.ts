@@ -55,8 +55,8 @@ export type MessageStats = {
   performance?: {
     responseTimeMs?: number;
     timeToFirstOutputMs?: number;
+    reasoningTimeMs?: number;
     outputTokensPerSecond?: number;
-    effectiveOutputTokensPerSecond?: number;
   };
 };
 

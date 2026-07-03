@@ -56,12 +56,20 @@ export async function streamChat({ messages, conversationId, presetId }: ChatReq
 
   const streamStart = performance.now();
   let firstOutputAt: number | undefined;
+  let reasoningStartAt: number | undefined;
+  let reasoningEndAt: number | undefined;
 
   const result = streamText({
     model: modelProvider.chatModel(modelId),
     instructions,
     messages: await convertToModelMessages(messages),
     onChunk({ chunk }) {
+      if (chunk.type === "reasoning-delta" && !reasoningStartAt) {
+        reasoningStartAt = performance.now();
+      }
+      if (chunk.type === "reasoning-end") {
+        reasoningEndAt = performance.now();
+      }
       if (
         !firstOutputAt &&
         (chunk.type === "text-delta" || chunk.type === "reasoning-delta")
@@ -74,6 +82,11 @@ export async function streamChat({ messages, conversationId, presetId }: ChatReq
     },
     onEnd({ text, reasoning, finishReason, usage, response, steps }) {
       const stepPerformance = steps?.at(-1)?.performance;
+      // reasoningTimeMs is measured from onChunk (more precise than
+      // stepPerformance which starts counting from step begin).
+      const reasoningTimeMs = reasoningStartAt && reasoningEndAt
+        ? reasoningEndAt - reasoningStartAt
+        : undefined;
 
       const stats: MessageStats = {
         provider: provider.name,
@@ -82,16 +95,16 @@ export async function streamChat({ messages, conversationId, presetId }: ChatReq
         finishReason,
         usage: mapUsageToStats(usage),
         // For the persisted message we keep the SDK's own performance figures
-        // (incl. timeToFirstOutputMs and effectiveOutputTokensPerSecond) — it
-        // has access to richer timing data than our coarse streamStart/TTFT
-        // measurement above.
+        // (incl. timeToFirstOutputMs) — it has access to richer timing data
+        // than our coarse streamStart/TTFT measurement above.
+        // reasoningTimeMs is our own measurement because the SDK doesn't
+        // expose reasoning-specific timing yet.
         performance: stepPerformance
           ? {
             responseTimeMs: stepPerformance.responseTimeMs,
             timeToFirstOutputMs: stepPerformance.timeToFirstOutputMs,
+            reasoningTimeMs,
             outputTokensPerSecond: stepPerformance.outputTokensPerSecond,
-            effectiveOutputTokensPerSecond:
-              stepPerformance.effectiveOutputTokensPerSecond,
           }
           : undefined,
       };
@@ -184,6 +197,8 @@ function extractReasoningText(
 // message so the client can show them right after generation, without a
 // separate fetch. Note: this is a best-effort approximation — the SDK's
 // `onEnd` (which feeds persistence) has richer timing data via `steps`.
+// reasoningTimeMs is excluded here because the client measures it locally
+// for instant display when reasoning finishes.
 type StreamStatsInput = {
   provider: { id: string; name: string };
   modelId: string;

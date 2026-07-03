@@ -86,6 +86,15 @@ function ConversationView({ id }: { id: string }) {
       const meta = m.metadata as
         | { starred?: boolean; stats?: MessageStats }
         | undefined;
+      // True while the AI SDK is still streaming reasoning chunks.
+      // Used by AgentMessage to show "Denke nach…" only during
+      // the thinking phase, not during text generation.
+      const reasoningStreaming = m.parts.some(
+        (p) => p.type === "reasoning" && p.state === "streaming",
+      );
+      // True while the request is in-flight but no content has arrived yet.
+      const waiting = busy && m.role === "assistant"
+        && !uiMessageText(m) && !uiMessageReasoning(m);
       return {
         id: m.id,
         role: m.role as "user" | "assistant",
@@ -94,6 +103,8 @@ function ConversationView({ id }: { id: string }) {
         createdAt: messageCreatedAt(m),
         starred: meta?.starred,
         stats: meta?.stats,
+        reasoningStreaming,
+        waiting,
       };
     }),
   );
@@ -129,6 +140,8 @@ function ConversationView({ id }: { id: string }) {
                 stats={item.message.stats}
                 starred={item.message.starred}
                 last={item.last}
+                reasoningStreaming={item.message.reasoningStreaming ?? false}
+                waiting={item.message.waiting ?? false}
               />
             ),
           )}
