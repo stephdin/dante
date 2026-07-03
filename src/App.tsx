@@ -36,7 +36,7 @@ function App() {
         <Group h="100%" px="md" justify="space-between">
           <Burger opened={navOpened} onClick={toggleNav} size="sm" />
 
-          <Title order={4}>Dante</Title>
+          <Title order={4}></Title>
 
           <Menu position="bottom-end" withinPortal>
             <Menu.Target>

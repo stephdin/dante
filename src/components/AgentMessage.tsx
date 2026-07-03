@@ -133,32 +133,32 @@ export function AgentMessage({
       </Paper>
       <Group justify="flex-start" align="center" gap={4} mt="xs">
         {starred && (
-          <ActionIcon variant="subtle" color="yellow" size="sm" title="Markierung entfernen">
+          <ActionIcon variant="transparent" color="yellow" size="sm" title="Markierung entfernen">
             <IconStarFilled size={14} />
           </ActionIcon>
         )}
         <Group gap={4} style={actionsStyle}>
           {!starred && (
-            <ActionIcon variant="subtle" color="dimmed" size="sm" title="Markieren">
+            <ActionIcon variant="transparent" c="dimmed" size="sm" title="Markieren">
               <IconStar size={14} />
             </ActionIcon>
           )}
-          <ActionIcon variant="subtle" color="dimmed" size="sm" title="Kopieren">
+          <ActionIcon variant="transparent" c="dimmed" size="sm" title="Kopieren">
             <IconCopy size={14} />
           </ActionIcon>
           {last && (
             <>
               <ActionIcon
-                variant="subtle"
-                color="dimmed"
+                variant="transparent"
+                c="dimmed"
                 size="sm"
                 title="Neu generieren"
               >
                 <IconRefresh size={14} />
               </ActionIcon>
               <ActionIcon
-                variant="subtle"
-                color="dimmed"
+                variant="transparent"
+                c="dimmed"
                 size="sm"
                 title="Löschen"
               >

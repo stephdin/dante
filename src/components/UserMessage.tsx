@@ -23,22 +23,22 @@ export function UserMessage({
         </Paper>
       </Group>
       <Group justify="flex-end" gap={4} mt="xs" style={actionsStyle}>
-        <ActionIcon variant="subtle" color="dimmed" size="sm" title="Kopieren">
+        <ActionIcon variant="transparent" c="dimmed" size="sm" title="Kopieren">
           <IconCopy size={14} />
         </ActionIcon>
         {last && (
           <>
             <ActionIcon
-              variant="subtle"
-              color="dimmed"
+              variant="transparent"
+              c="dimmed"
               size="sm"
               title="Neu generieren"
             >
               <IconRefresh size={14} />
             </ActionIcon>
             <ActionIcon
-              variant="subtle"
-              color="dimmed"
+              variant="transparent"
+              c="dimmed"
               size="sm"
               title="Löschen"
             >

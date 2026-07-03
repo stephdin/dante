@@ -1,6 +1,5 @@
 import { useState, type KeyboardEvent } from "react";
 import {
-  ActionIcon,
   Button,
   Container,
   Group,
@@ -9,7 +8,7 @@ import {
   Stack,
   Textarea,
 } from "@mantine/core";
-import { IconCheck } from "@tabler/icons-react";
+import { IconCheck, IconChevronDown } from "@tabler/icons-react";
 
 import { useConfig } from "../api/queries.ts";
 import { presetIcon } from "../config/presetIcons.ts";
@@ -66,14 +65,16 @@ export function ChatInput({
           <Group justify="space-between" align="center">
             <Menu position="top-start" withinPortal>
               <Menu.Target>
-                <ActionIcon
-                  variant="subtle"
+                <Button
+                  variant="transparent"
                   color="gray"
-                  size="lg"
-                  title="Preset wählen"
+                  size="sm"
+                  c="dimmed"
+                  px={0}
+                  leftSection={<CurrentIcon size={16} />}
                 >
-                  <CurrentIcon size={18} color="grey" />
-                </ActionIcon>
+                  {preset?.name ?? "Preset"}
+                </Button>
               </Menu.Target>
               <Menu.Dropdown>
                 {presets.map((p) => {
