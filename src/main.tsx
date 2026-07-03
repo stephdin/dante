@@ -4,13 +4,17 @@ import { MantineProvider } from "@mantine/core";
 import { BrowserRouter } from "react-router-dom";
 import "@mantine/core/styles.css";
 
-import { theme } from "./theme.ts";
+import { cssVariablesResolver, theme } from "./theme.ts";
 import App from "./App.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
-      <MantineProvider theme={theme} defaultColorScheme="auto">
+      <MantineProvider
+        theme={theme}
+        defaultColorScheme="auto"
+        cssVariablesResolver={cssVariablesResolver}
+      >
         <App />
       </MantineProvider>
     </BrowserRouter>

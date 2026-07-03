@@ -4,6 +4,7 @@ import {
   DEFAULT_THEME,
   mergeMantineTheme,
   virtualColor,
+  type CSSVariablesResolver,
 } from "@mantine/core";
 
 const themeOverride = createTheme({
@@ -27,3 +28,16 @@ const themeOverride = createTheme({
 });
 
 export const theme = mergeMantineTheme(DEFAULT_THEME, themeOverride);
+
+// Mantine's body background is driven by the --mantine-color-body CSS
+// variable. cssVariablesResolver lets you set that variable per color scheme
+// without adding a separate CSS file.
+export const cssVariablesResolver: CSSVariablesResolver = () => ({
+  variables: {},
+  light: {
+    "--mantine-color-body": "#ffffff",
+  },
+  dark: {
+    "--mantine-color-body": "#111111",
+  },
+});
