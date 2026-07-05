@@ -31,6 +31,7 @@ import type {
   Preset,
   Provider,
 } from "@shared/types.ts";
+import { useNavigate } from "react-router-dom";
 
 import { useConfig } from "../api/queries.ts";
 import { useDisplaySettings } from "../context/DisplaySettingsContext.tsx";
@@ -63,15 +64,17 @@ function ListItem({
   subtitle,
   detail,
   titleRightSection,
+  onClick,
 }: {
   icon?: ReactNode;
   title: string;
   subtitle?: string;
   detail?: string;
   titleRightSection?: ReactNode;
+  onClick?: () => void;
 }) {
   return (
-    <Paper p="sm" radius="md" withBorder style={{ cursor: "pointer" }}>
+    <Paper p="sm" radius="md" withBorder style={{ cursor: "pointer" }} onClick={onClick}>
       <Group gap="sm" wrap="nowrap" justify="space-between">
         <Group gap="sm" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
           {icon && (
@@ -240,6 +243,8 @@ function PresetSection({
   assistants: Assistant[];
   mcps: McpConnection[];
 }) {
+  const navigate = useNavigate();
+
   return (
     <Stack gap="xs">
       <SectionHeader
@@ -271,13 +276,14 @@ function PresetSection({
               title={preset.name}
               titleRightSection={
                 preset.default ? (
-                  <Badge size="xs" variant="light" color="gray">
+                  <Badge size="xs" variant="default" color="gray">
                     Standard
                   </Badge>
                 ) : null
               }
               subtitle={primaryParts.length > 0 ? primaryParts.join(" · ") : undefined}
               detail={mcpParts.length > 0 ? mcpParts.join(" · ") : undefined}
+              onClick={() => navigate(`/settings/presets/${preset.id}`)}
             />
           );
         })}
@@ -286,6 +292,7 @@ function PresetSection({
           color="gray"
           leftSection={<IconPlus size={16} />}
           justify="flex-start"
+          onClick={() => navigate("/settings/presets/new")}
         >
           Preset hinzufügen
         </Button>
@@ -295,6 +302,8 @@ function PresetSection({
 }
 
 function ProviderSection({ providers }: { providers: Provider[] }) {
+  const navigate = useNavigate();
+
   return (
     <Stack gap="xs">
       <SectionHeader
@@ -308,6 +317,7 @@ function ProviderSection({ providers }: { providers: Provider[] }) {
             icon={<IconApi size={14} />}
             title={provider.name}
             subtitle={provider.models.map((m) => m.name).join(", ")}
+            onClick={() => navigate(`/settings/providers/${provider.id}`)}
           />
         ))}
         <Button
@@ -315,6 +325,7 @@ function ProviderSection({ providers }: { providers: Provider[] }) {
           color="gray"
           leftSection={<IconPlus size={16} />}
           justify="flex-start"
+          onClick={() => navigate("/settings/providers/new")}
         >
           Anbieter hinzufügen
         </Button>
@@ -324,6 +335,8 @@ function ProviderSection({ providers }: { providers: Provider[] }) {
 }
 
 function AssistantSection({ assistants }: { assistants: Assistant[] }) {
+  const navigate = useNavigate();
+
   return (
     <Stack gap="xs">
       <SectionHeader
@@ -337,6 +350,7 @@ function AssistantSection({ assistants }: { assistants: Assistant[] }) {
             icon={<IconBrain size={14} />}
             title={assistant.name}
             subtitle={assistant.prompt}
+            onClick={() => navigate(`/settings/assistants/${assistant.id}`)}
           />
         ))}
         <Button
@@ -344,6 +358,7 @@ function AssistantSection({ assistants }: { assistants: Assistant[] }) {
           color="gray"
           leftSection={<IconPlus size={16} />}
           justify="flex-start"
+          onClick={() => navigate("/settings/assistants/new")}
         >
           Assistent hinzufügen
         </Button>
@@ -353,6 +368,8 @@ function AssistantSection({ assistants }: { assistants: Assistant[] }) {
 }
 
 function McpSection({ mcps }: { mcps: McpConnection[] }) {
+  const navigate = useNavigate();
+
   return (
     <Stack gap="xs">
       <SectionHeader
@@ -366,6 +383,7 @@ function McpSection({ mcps }: { mcps: McpConnection[] }) {
             icon={<IconPlug size={14} />}
             title={mcp.name}
             subtitle={mcp.status}
+            onClick={() => navigate(`/settings/mcps/${mcp.id}`)}
           />
         ))}
         <Button
@@ -373,6 +391,7 @@ function McpSection({ mcps }: { mcps: McpConnection[] }) {
           color="gray"
           leftSection={<IconPlus size={16} />}
           justify="flex-start"
+          onClick={() => navigate("/settings/mcps/new")}
         >
           Verbindung hinzufügen
         </Button>

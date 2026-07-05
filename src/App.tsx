@@ -26,11 +26,16 @@ const ChatOverviewPage = lazy(() => import("./pages/ChatOverviewPage.tsx"));
 const ConversationPage = lazy(() => import("./pages/ConversationPage.tsx"));
 const NewConversationPage = lazy(() => import("./pages/NewConversationPage.tsx"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage.tsx"));
+const ProviderFormPage = lazy(() => import("./pages/settings/ProviderFormPage.tsx"));
+const AssistantFormPage = lazy(() => import("./pages/settings/AssistantFormPage.tsx"));
+const McpFormPage = lazy(() => import("./pages/settings/McpFormPage.tsx"));
+const PresetFormPage = lazy(() => import("./pages/settings/PresetFormPage.tsx"));
 
 function getPageTitle(pathname: string): string {
   if (pathname === "/new") return "Dante";
   if (pathname === "/chats") return "Chats";
   if (pathname === "/settings") return "Einstellungen";
+  if (pathname.startsWith("/settings/")) return "Einstellungen";
   if (pathname.startsWith("/conversation/")) return "";
   return "Dante";
 }
@@ -102,6 +107,14 @@ function App() {
             <Route path="/chats" element={<ChatOverviewPage />} />
             <Route path="/conversation/:id" element={<ConversationPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/providers/new" element={<ProviderFormPage />} />
+            <Route path="/settings/providers/:id" element={<ProviderFormPage />} />
+            <Route path="/settings/assistants/new" element={<AssistantFormPage />} />
+            <Route path="/settings/assistants/:id" element={<AssistantFormPage />} />
+            <Route path="/settings/mcps/new" element={<McpFormPage />} />
+            <Route path="/settings/mcps/:id" element={<McpFormPage />} />
+            <Route path="/settings/presets/new" element={<PresetFormPage />} />
+            <Route path="/settings/presets/:id" element={<PresetFormPage />} />
             <Route path="*" element={<Navigate to="/new" replace />} />
           </Routes>
         </Suspense>
