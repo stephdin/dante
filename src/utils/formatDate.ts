@@ -1,6 +1,13 @@
 // Human-friendly German date labels for the chat UI, matching the original
 // mockup ("Heute", "Gestern", "28. Jun.").
 
+export function formatTime(value: string | Date): string {
+  return new Intl.DateTimeFormat("de-DE", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
 export function formatRelativeDate(value: string | Date): string {
   const date = new Date(value);
   const today = new Date();

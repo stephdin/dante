@@ -12,7 +12,7 @@ import {
 import { useConversations } from "../api/queries.ts";
 import { formatRelativeDate } from "../utils/formatDate.ts";
 
-export function ChatOverviewPage() {
+export default function ChatOverviewPage() {
   const { data: conversations, loading, error } = useConversations();
 
   return (

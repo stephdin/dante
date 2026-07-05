@@ -16,7 +16,7 @@ import {
 import { buildChatItems } from "../utils/groupMessages.ts";
 import type { Message, MessageStats } from "@shared/types.ts";
 
-export function ConversationPage() {
+export default function ConversationPage() {
   const { id } = useParams();
   if (!id) return null;
   // Keying the inner view by id gives each conversation a fresh useChat
@@ -130,6 +130,7 @@ function ConversationView({ id }: { id: string }) {
               <UserMessage
                 key={item.message.id}
                 text={item.message.text}
+                createdAt={item.message.createdAt}
                 last={item.last}
               />
             ) : (
@@ -138,6 +139,7 @@ function ConversationView({ id }: { id: string }) {
                 text={item.message.text}
                 reasoning={item.message.reasoning}
                 stats={item.message.stats}
+                createdAt={item.message.createdAt}
                 starred={item.message.starred}
                 last={item.last}
                 reasoningStreaming={item.message.reasoningStreaming ?? false}

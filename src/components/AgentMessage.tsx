@@ -21,7 +21,9 @@ import type { CSSProperties } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { MessageStats } from "@shared/types.ts";
+import { useDisplaySettings } from "../context/DisplaySettingsContext.tsx";
 import { DEBUG_MESSAGE_STATS } from "../config/debug.ts";
+import { formatTime } from "../utils/formatDate.ts";
 import { useMessageActions } from "./useMessageActions.ts";
 import classes from "./AgentMessage.module.css";
 
@@ -29,6 +31,7 @@ export function AgentMessage({
   text,
   reasoning,
   stats,
+  createdAt,
   last = false,
   reasoningStreaming = false,
   starred = false,
@@ -37,12 +40,14 @@ export function AgentMessage({
   text: string;
   reasoning?: string;
   stats?: MessageStats;
+  createdAt?: string | Date;
   last?: boolean;
   reasoningStreaming?: boolean;
   starred?: boolean;
   waiting?: boolean;
 }) {
   const { ref, actionsStyle } = useMessageActions();
+  const { settings } = useDisplaySettings();
   const [reasoningOpen, setReasoningOpen] = useState(false);
   const hasReasoning = !!reasoning && reasoning.trim().length > 0;
 
@@ -123,15 +128,19 @@ export function AgentMessage({
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
         </Typography>
         {/* Debug overlay: per-message provider stats. Shown as a single
-            compact line under the message content. Gated by
-            DEBUG_MESSAGE_STATS so prod stays clean. */}
-        {DEBUG_MESSAGE_STATS && stats && (
+            compact line under the message content. */}
+        {(settings.showProviderStats || DEBUG_MESSAGE_STATS) && stats && (
           <Text size="xs" c="dimmed" mt="xs">
             {formatMessageStats(stats)}
           </Text>
         )}
       </Paper>
       <Group justify="flex-start" align="center" gap={4} mt="xs">
+        {settings.showTimestamps && createdAt && (
+          <Text size="xs" c="dimmed">
+            {formatTime(createdAt)}
+          </Text>
+        )}
         {starred && (
           <ActionIcon variant="transparent" color="yellow" size="sm" title="Markierung entfernen">
             <IconStarFilled size={14} />

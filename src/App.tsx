@@ -3,10 +3,13 @@ import {
   AppShell,
   Burger,
   Group,
+  Loader,
   Menu,
+  Stack,
   Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import {
   IconClipboard,
@@ -18,10 +21,11 @@ import {
 } from "@tabler/icons-react";
 
 import { ChatNavbar } from "./components/ChatNavbar.tsx";
-import { ChatOverviewPage } from "./pages/ChatOverviewPage.tsx";
-import { ConversationPage } from "./pages/ConversationPage.tsx";
-import { NewConversationPage } from "./pages/NewConversationPage.tsx";
-import { SettingsPage } from "./pages/SettingsPage.tsx";
+
+const ChatOverviewPage = lazy(() => import("./pages/ChatOverviewPage.tsx"));
+const ConversationPage = lazy(() => import("./pages/ConversationPage.tsx"));
+const NewConversationPage = lazy(() => import("./pages/NewConversationPage.tsx"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage.tsx"));
 
 function getPageTitle(pathname: string): string {
   if (pathname === "/new") return "Dante";
@@ -85,14 +89,22 @@ function App() {
       <ChatNavbar opened={navOpened} onClose={closeNav} />
 
       <AppShell.Main style={{ display: "flex", flexDirection: "column" }}>
-        <Routes>
-          <Route path="/" element={<Navigate to="/new" replace />} />
-          <Route path="/new" element={<NewConversationPage />} />
-          <Route path="/chats" element={<ChatOverviewPage />} />
-          <Route path="/conversation/:id" element={<ConversationPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="*" element={<Navigate to="/new" replace />} />
-        </Routes>
+        <Suspense
+          fallback={
+            <Stack align="center" justify="center" style={{ flex: 1 }}>
+              <Loader />
+            </Stack>
+          }
+        >
+          <Routes>
+            <Route path="/" element={<Navigate to="/new" replace />} />
+            <Route path="/new" element={<NewConversationPage />} />
+            <Route path="/chats" element={<ChatOverviewPage />} />
+            <Route path="/conversation/:id" element={<ConversationPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="*" element={<Navigate to="/new" replace />} />
+          </Routes>
+        </Suspense>
       </AppShell.Main>
     </AppShell>
   );

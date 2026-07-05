@@ -8,7 +8,7 @@ import {
   Stack,
   Textarea,
 } from "@mantine/core";
-import { IconCheck, IconChevronDown } from "@tabler/icons-react";
+import { IconCheck } from "@tabler/icons-react";
 
 import { useConfig } from "../api/queries.ts";
 import { presetIcon } from "../config/presetIcons.ts";

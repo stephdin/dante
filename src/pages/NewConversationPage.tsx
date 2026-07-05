@@ -5,7 +5,7 @@ import { IconSparkles } from "@tabler/icons-react";
 
 import { ChatLayout } from "../components/ChatLayout.tsx";
 
-export function NewConversationPage() {
+export default function NewConversationPage() {
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
 
@@ -31,7 +31,7 @@ export function NewConversationPage() {
         </EmptyState.Indicator>
         <EmptyState.Title>Neue Unterhaltung</EmptyState.Title>
         <EmptyState.Description>
-          Schreibe eine Nachricht unten, <br /> um die Unterhaltung zu beginnen.
+          Schreibe eine Nachricht, um die Unterhaltung zu beginnen.
         </EmptyState.Description>
       </EmptyState>
     </ChatLayout>
