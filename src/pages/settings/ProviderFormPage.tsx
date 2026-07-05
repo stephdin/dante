@@ -13,8 +13,8 @@ export default function ProviderFormPage() {
           {isNew ? "Anbieter hinzufügen" : "Anbieter bearbeiten"}
         </Title>
         <Text c="dimmed">
-          Hier wird später das Formular für Modellanbieter stehen: Name, Typ, URL
-          und zugeordnete Modelle.
+          Hier wird später das Formular für Modellanbieter stehen: Name, Typ,
+          URL und zugeordnete Modelle.
         </Text>
         <Button onClick={() => navigate("/settings")}>Zurück</Button>
       </Stack>

@@ -17,7 +17,9 @@ export default function NewConversationPage() {
       const res = await fetch("/api/conversations", { method: "POST" });
       if (!res.ok) throw new Error("create failed");
       const { id } = (await res.json()) as { id: string };
-      navigate(`/conversation/${id}`, { state: { pendingMessage: text, presetId } });
+      navigate(`/conversation/${id}`, {
+        state: { pendingMessage: text, presetId },
+      });
     } finally {
       setCreating(false);
     }

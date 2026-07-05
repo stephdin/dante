@@ -31,7 +31,9 @@ export function ChatInput({
     presets.find((p) => p.id === presetId) ??
     presets.find((p) => p.default) ??
     presets[0];
-  const CurrentIcon = preset ? presetIcon(preset.iconId) : presetIcon("sparkles");
+  const CurrentIcon = preset
+    ? presetIcon(preset.iconId)
+    : presetIcon("sparkles");
 
   function submit() {
     const text = value.trim();
@@ -95,7 +97,12 @@ export function ChatInput({
               </Menu.Dropdown>
             </Menu>
             {busy && onStop ? (
-              <Button color="primary" autoContrast variant="light" onClick={onStop}>
+              <Button
+                color="primary"
+                autoContrast
+                variant="light"
+                onClick={onStop}
+              >
                 Stopp
               </Button>
             ) : (

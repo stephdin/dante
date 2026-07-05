@@ -80,11 +80,7 @@ export function AgentMessage({
 
   return (
     <Box ref={ref}>
-      <Paper
-        p={starred ? "sm" : 0}
-        radius="md"
-        style={starredStyle}
-      >
+      <Paper p={starred ? "sm" : 0} radius="md" style={starredStyle}>
         {waiting && (
           <Text c="dimmed" fz="xs" mb="xs">
             Warte auf Antwort…
@@ -142,17 +138,32 @@ export function AgentMessage({
           </Text>
         )}
         {starred && (
-          <ActionIcon variant="transparent" color="yellow" size="sm" title="Markierung entfernen">
+          <ActionIcon
+            variant="transparent"
+            color="yellow"
+            size="sm"
+            title="Markierung entfernen"
+          >
             <IconStarFilled size={14} />
           </ActionIcon>
         )}
         <Group gap={4} style={actionsStyle}>
           {!starred && (
-            <ActionIcon variant="transparent" c="dimmed" size="sm" title="Markieren">
+            <ActionIcon
+              variant="transparent"
+              c="dimmed"
+              size="sm"
+              title="Markieren"
+            >
               <IconStar size={14} />
             </ActionIcon>
           )}
-          <ActionIcon variant="transparent" c="dimmed" size="sm" title="Kopieren">
+          <ActionIcon
+            variant="transparent"
+            c="dimmed"
+            size="sm"
+            title="Kopieren"
+          >
             <IconCopy size={14} />
           </ActionIcon>
           {last && (
@@ -205,13 +216,18 @@ function formatMessageStats(stats: MessageStats): string {
   const usage = stats.usage;
   if (usage) {
     const tokens: string[] = [];
-    if (usage.inputTokens !== undefined) tokens.push(`${formatTokens(usage.inputTokens)} in`);
-    if (usage.outputTokens !== undefined) tokens.push(`${formatTokens(usage.outputTokens)} out`);
+    if (usage.inputTokens !== undefined)
+      tokens.push(`${formatTokens(usage.inputTokens)} in`);
+    if (usage.outputTokens !== undefined)
+      tokens.push(`${formatTokens(usage.outputTokens)} out`);
     if ((usage.reasoningTokens ?? 0) > 0) {
-      if (usage.reasoningTokens !== undefined) tokens.push(`${formatTokens(usage.reasoningTokens)} reasoning`);
-      if (usage.textTokens !== undefined) tokens.push(`${formatTokens(usage.textTokens)} text`);
+      if (usage.reasoningTokens !== undefined)
+        tokens.push(`${formatTokens(usage.reasoningTokens)} reasoning`);
+      if (usage.textTokens !== undefined)
+        tokens.push(`${formatTokens(usage.textTokens)} text`);
     }
-    if (usage.totalTokens !== undefined) tokens.push(`${formatTokens(usage.totalTokens)} total`);
+    if (usage.totalTokens !== undefined)
+      tokens.push(`${formatTokens(usage.totalTokens)} total`);
     if (tokens.length) groups.push(`${tokens.join(" · ")}`);
   }
 
@@ -219,9 +235,12 @@ function formatMessageStats(stats: MessageStats): string {
   const perf = stats.performance;
   if (perf) {
     const perfParts: string[] = [];
-    if (perf.responseTimeMs !== undefined) perfParts.push(`total ${formatDuration(perf.responseTimeMs)}`);
-    if (perf.timeToFirstOutputMs !== undefined) perfParts.push(`ttft ${formatDuration(perf.timeToFirstOutputMs)}`);
-    if (perf.outputTokensPerSecond !== undefined) perfParts.push(`${Math.round(perf.outputTokensPerSecond)} tok/s`);
+    if (perf.responseTimeMs !== undefined)
+      perfParts.push(`total ${formatDuration(perf.responseTimeMs)}`);
+    if (perf.timeToFirstOutputMs !== undefined)
+      perfParts.push(`ttft ${formatDuration(perf.timeToFirstOutputMs)}`);
+    if (perf.outputTokensPerSecond !== undefined)
+      perfParts.push(`${Math.round(perf.outputTokensPerSecond)} tok/s`);
     if (perfParts.length) groups.push(`${perfParts.join(" · ")}`);
   }
 

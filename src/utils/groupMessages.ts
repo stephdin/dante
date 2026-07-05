@@ -28,7 +28,10 @@ export function buildChatItems(messages: ChatMessage[]): ChatItem[] {
   messages.forEach((message, index) => {
     const day = new Date(message.createdAt).toDateString();
     if (lastDay !== "" && day !== lastDay) {
-      items.push({ kind: "divider", label: formatRelativeDate(message.createdAt) });
+      items.push({
+        kind: "divider",
+        label: formatRelativeDate(message.createdAt),
+      });
     }
     lastDay = day;
     items.push({

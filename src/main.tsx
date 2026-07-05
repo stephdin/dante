@@ -1,16 +1,17 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { MantineProvider } from "@mantine/core";
-import { BrowserRouter } from "react-router-dom";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import "@mantine/core/styles.css";
 
 import { DisplaySettingsProvider } from "./context/DisplaySettingsContext.tsx";
 import { cssVariablesResolver, theme } from "./theme.ts";
 import App from "./App.tsx";
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <BrowserRouter>
+const router = createBrowserRouter([
+  {
+    path: "*",
+    element: (
       <MantineProvider
         theme={theme}
         defaultColorScheme="auto"
@@ -20,6 +21,12 @@ createRoot(document.getElementById("root")!).render(
           <App />
         </DisplaySettingsProvider>
       </MantineProvider>
-    </BrowserRouter>
+    ),
+  },
+]);
+
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <RouterProvider router={router} />
   </StrictMode>,
 );

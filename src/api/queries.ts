@@ -7,17 +7,27 @@ import type {
   ConversationSummary,
 } from "@shared/types.ts";
 
+// Cached config so that navigating between /settings and a settings subpage
+// (which unmounts/remounts SettingsPage) doesn't re-trigger the Loader and
+// lose the scroll position that react-router's ScrollRestoration tries to
+// restore. The backend exposes no config mutations yet, so the cache never
+// needs invalidation; if/when POST/PUT handlers are added, expose an
+// invalidateConfig() and call it from the mutation handlers.
+let configCache: Config | null = null;
+
 export function useConfig() {
-  const [data, setData] = useState<Config | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<Config | null>(configCache);
+  const [loading, setLoading] = useState(configCache === null);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (configCache !== null) return;
     let active = true;
     setLoading(true);
     apiGet<Config>("/config")
       .then((result) => {
         if (active) {
+          configCache = result;
           setData(result);
           setError(null);
         }
@@ -36,6 +46,10 @@ export function useConfig() {
   }, []);
 
   return { data, loading, error };
+}
+
+export function invalidateConfig() {
+  configCache = null;
 }
 
 export function useConversations() {

@@ -18,64 +18,63 @@ export const ChatLayout = forwardRef<
     busy?: boolean;
   }
 >(function ChatLayout({ children, centered, onSend, onStop, busy }, ref) {
-    return (
+  return (
+    <Box
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        flex: 1,
+        minHeight: 0,
+        position: "relative",
+      }}
+    >
       <Box
+        ref={ref}
         style={{
-          display: "flex",
-          flexDirection: "column",
-          flex: 1,
+          flex: "1 1 0",
           minHeight: 0,
-          position: "relative",
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+          // Reserve room at the bottom so the last messages can scroll past
+          // the floating composer instead of being hidden behind it.
+          paddingBottom: 160,
         }}
       >
-        <Box
-          ref={ref}
-          style={{
-            flex: "1 1 0",
-            minHeight: 0,
-            overflowY: "auto",
-            WebkitOverflowScrolling: "touch",
-            // Reserve room at the bottom so the last messages can scroll past
-            // the floating composer instead of being hidden behind it.
-            paddingBottom: 160,
-          }}
+        <Container
+          size="md"
+          p="md"
+          style={
+            centered
+              ? {
+                  minHeight: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                }
+              : undefined
+          }
         >
-          <Container
-            size="md"
-            p="md"
-            style={
-              centered
-                ? {
-                    minHeight: "100%",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                  }
-                : undefined
-            }
-          >
-            {children}
-          </Container>
-        </Box>
+          {children}
+        </Container>
+      </Box>
 
-        <Box
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            // Transparent wrapper: only the rounded Paper inside is opaque, so
-            // messages scrolling up are cut off by the Paper's rounded edge.
-            // Let scroll/touch pass through the empty padding area; the input
-            // re-enables events on itself.
-            pointerEvents: "none",
-          }}
-        >
-          <Box p="md" style={{ pointerEvents: "auto" }}>
-            <ChatInput onSend={onSend} onStop={onStop} busy={busy} />
-          </Box>
+      <Box
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          // Transparent wrapper: only the rounded Paper inside is opaque, so
+          // messages scrolling up are cut off by the Paper's rounded edge.
+          // Let scroll/touch pass through the empty padding area; the input
+          // re-enables events on itself.
+          pointerEvents: "none",
+        }}
+      >
+        <Box p="md" style={{ pointerEvents: "auto" }}>
+          <ChatInput onSend={onSend} onStop={onStop} busy={busy} />
         </Box>
       </Box>
-    );
-  },
-);
+    </Box>
+  );
+});

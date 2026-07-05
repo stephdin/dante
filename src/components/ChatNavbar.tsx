@@ -1,11 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import {
-  Drawer,
-  Loader,
-  NavLink,
-  Stack,
-  Text,
-} from "@mantine/core";
+import { Drawer, Loader, NavLink, Stack, Text } from "@mantine/core";
 import { IconList, IconPlus, IconSettings } from "@tabler/icons-react";
 
 import { useConversations } from "../api/queries.ts";
@@ -30,14 +24,17 @@ export function ChatNavbar({
       title="Dante"
       styles={{ body: { padding: 0 } }}
     >
-      <Stack gap={0} style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}>
+      <Stack
+        gap={0}
+        style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}
+      >
         <NavLink
           component={Link}
           to="/new"
           onClick={onClose}
           active={pathname === "/new"}
           label="Neuer Chat"
-             color="gray"
+          color="gray"
           leftSection={<IconPlus size={16} />}
         />
 

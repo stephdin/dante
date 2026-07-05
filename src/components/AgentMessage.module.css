@@ -1,17 +1,17 @@
 .markdown {
-  /* Crisper text rendering and a comfortable reading line height. */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  line-height: 1.65;
+    /* Crisper text rendering and a comfortable reading line height. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.65;
 }
 
 .markdown p {
-  margin-bottom: 1rem;
-  line-height: 1.65;
+    margin-bottom: 1rem;
+    line-height: 1.65;
 }
 
 .markdown p:last-child {
-  margin-bottom: 0;
+    margin-bottom: 0;
 }
 
 /* Headings: tighter line height and more space above than below so each
@@ -22,10 +22,10 @@
 .markdown h4,
 .markdown h5,
 .markdown h6 {
-  line-height: 1.25;
-  margin-top: 2rem;
-  margin-bottom: 0.75rem;
-  font-weight: 600;
+    line-height: 1.25;
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
 }
 
 .markdown h1:first-child,
@@ -34,99 +34,99 @@
 .markdown h4:first-child,
 .markdown h5:first-child,
 .markdown h6:first-child {
-  margin-top: 0;
+    margin-top: 0;
 }
 
 .markdown h1 {
-  font-size: 1.75rem;
+    font-size: 1.75rem;
 }
 
 .markdown h2 {
-  font-size: 1.5rem;
+    font-size: 1.5rem;
 }
 
 .markdown h3 {
-  font-size: 1.25rem;
+    font-size: 1.25rem;
 }
 
 .markdown h4 {
-  font-size: 1.1rem;
+    font-size: 1.1rem;
 }
 
 .markdown h5 {
-  font-size: 1rem;
+    font-size: 1rem;
 }
 
 .markdown h6 {
-  font-size: 0.9rem;
+    font-size: 0.9rem;
 }
 
 .markdown ul,
 .markdown ol {
-  margin-bottom: 1rem;
-  padding-left: 1.5rem;
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
 }
 
 .markdown li {
-  margin-bottom: 0.35rem;
-  line-height: 1.6;
+    margin-bottom: 0.35rem;
+    line-height: 1.6;
 }
 
 .markdown li > ul,
 .markdown li > ol {
-  margin-top: 0.35rem;
-  margin-bottom: 0.35rem;
+    margin-top: 0.35rem;
+    margin-bottom: 0.35rem;
 }
 
 .markdown pre {
-  margin-bottom: 1rem;
-  line-height: 1.5;
+    margin-bottom: 1rem;
+    line-height: 1.5;
 }
 
 .markdown blockquote {
-  margin-top: 3rem;
-  margin-bottom: 3em;
-  padding-left: 1rem;
-  border-left: 3px solid var(--mantine-color-default-border);
-  font-size: 1rem;
+    margin-top: 3rem;
+    margin-bottom: 3em;
+    padding-left: 1rem;
+    border-left: 3px solid var(--mantine-color-default-border);
+    font-size: 1rem;
 }
 
 .markdown :not(pre) > code {
-  font-size: 1em;
+    font-size: 1em;
 }
 
 /* Code blocks keep their darker background; reset any inline-code border. */
 .markdown pre code {
-  background-color: transparent;
-  border: none;
-  padding: 0;
-  font-size: inherit;
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    font-size: inherit;
 }
 
 /* Divider: same vertical rhythm as headings. */
 .markdown hr {
-  border: 0;
-  border-top: 1px solid var(--mantine-color-default-border);
-  margin: 2rem 0;
-  opacity: 0.4;
+    border: 0;
+    border-top: 1px solid var(--mantine-color-default-border);
+    margin: 2rem 0;
+    opacity: 0.4;
 }
 
 .markdown table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 2rem;
-  margin-bottom: 2rem;
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 2rem;
+    margin-bottom: 2rem;
 }
 
 .markdown th,
 .markdown td {
-  border: 1px solid
-    color-mix(in srgb, var(--mantine-color-default-border) 50%, transparent);
-  padding: 0.5rem 0.75rem;
-  text-align: left;
-  line-height: 1.5;
+    border: 1px solid
+        color-mix(in srgb, var(--mantine-color-default-border) 50%, transparent);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    line-height: 1.5;
 }
 
 .markdown th {
-  font-weight: 600;
+    font-weight: 600;
 }

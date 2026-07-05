@@ -17,6 +17,8 @@ export function formatRelativeDate(value: string | Date): string {
   const diffDays = Math.round((today.getTime() - that.getTime()) / 86_400_000);
   if (diffDays === 0) return "Heute";
   if (diffDays === 1) return "Gestern";
-  return new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "short" })
-    .format(date);
+  return new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "short",
+  }).format(date);
 }

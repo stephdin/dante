@@ -63,18 +63,24 @@ function ListItem({
   title,
   subtitle,
   detail,
-  titleRightSection,
+  rightSection,
   onClick,
 }: {
   icon?: ReactNode;
   title: string;
   subtitle?: string;
   detail?: string;
-  titleRightSection?: ReactNode;
+  rightSection?: ReactNode;
   onClick?: () => void;
 }) {
   return (
-    <Paper p="sm" radius="md" withBorder style={{ cursor: "pointer" }} onClick={onClick}>
+    <Paper
+      p="sm"
+      radius="md"
+      withBorder
+      style={{ cursor: "pointer" }}
+      onClick={onClick}
+    >
       <Group gap="sm" wrap="nowrap" justify="space-between">
         <Group gap="sm" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
           {icon && (
@@ -82,15 +88,11 @@ function ListItem({
               {icon}
             </ThemeIcon>
           )}
-          <Stack
-            gap={2}
-            style={{ overflow: "hidden", minWidth: 0, flex: 1 }}
-          >
+          <Stack gap={2} style={{ overflow: "hidden", minWidth: 0, flex: 1 }}>
             <Group gap="xs" wrap="nowrap">
               <Text size="sm" fw={500}>
                 {title}
               </Text>
-              {titleRightSection}
             </Group>
             {subtitle && (
               <Text size="xs" c="dimmed" truncate>
@@ -104,6 +106,7 @@ function ListItem({
             )}
           </Stack>
         </Group>
+        {rightSection}
       </Group>
     </Paper>
   );
@@ -259,9 +262,7 @@ function PresetSection({
           );
           const model = provider?.models.find((m) => m.id === preset.modelId);
           const assistant = assistants.find((a) => a.id === preset.assistantId);
-          const selectedMcps = mcps.filter((m) =>
-            preset.mcpIds.includes(m.id),
-          );
+          const selectedMcps = mcps.filter((m) => preset.mcpIds.includes(m.id));
           const primaryParts = [
             provider?.name,
             model?.name,
@@ -274,14 +275,16 @@ function PresetSection({
               key={preset.id}
               icon={<PresetIcon size={16} />}
               title={preset.name}
-              titleRightSection={
+              rightSection={
                 preset.default ? (
                   <Badge size="xs" variant="default" color="gray">
                     Standard
                   </Badge>
                 ) : null
               }
-              subtitle={primaryParts.length > 0 ? primaryParts.join(" · ") : undefined}
+              subtitle={
+                primaryParts.length > 0 ? primaryParts.join(" · ") : undefined
+              }
               detail={mcpParts.length > 0 ? mcpParts.join(" · ") : undefined}
               onClick={() => navigate(`/settings/presets/${preset.id}`)}
             />
@@ -430,6 +433,7 @@ export default function SettingsPage() {
             <AssistantSection assistants={config?.assistants ?? []} />
             <Space h="xl" />
             <McpSection mcps={config?.mcps ?? []} />
+            <Space h={160} />
           </>
         )}
       </Stack>

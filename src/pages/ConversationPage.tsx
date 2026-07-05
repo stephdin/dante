@@ -70,7 +70,7 @@ function ConversationView({ id }: { id: string }) {
   }, [location.state, location.pathname, status, sendMessage, id, navigate]);
 
   // Keep the latest message in view as new chunks stream in.
-/*   useEffect(() => {
+  /*   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight });
   }, [messages]); */
@@ -84,8 +84,7 @@ function ConversationView({ id }: { id: string }) {
   const items = buildChatItems(
     messages.map((m) => {
       const meta = m.metadata as
-        | { starred?: boolean; stats?: MessageStats }
-        | undefined;
+        { starred?: boolean; stats?: MessageStats } | undefined;
       // True while the AI SDK is still streaming reasoning chunks.
       // Used by AgentMessage to show "Denke nach…" only during
       // the thinking phase, not during text generation.
@@ -93,8 +92,11 @@ function ConversationView({ id }: { id: string }) {
         (p) => p.type === "reasoning" && p.state === "streaming",
       );
       // True while the request is in-flight but no content has arrived yet.
-      const waiting = busy && m.role === "assistant"
-        && !uiMessageText(m) && !uiMessageReasoning(m);
+      const waiting =
+        busy &&
+        m.role === "assistant" &&
+        !uiMessageText(m) &&
+        !uiMessageReasoning(m);
       return {
         id: m.id,
         role: m.role as "user" | "assistant",
