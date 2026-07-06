@@ -14,12 +14,13 @@ Dante is a chat interface for local and remote LLMs with support for [MCP](https
 
 ## Status
 
-Dante is in an early prototype phase: data is held in-memory, there is no auth, and a few pieces (MCP tool-calling, the local llama.cpp backend, persisting config edits) are designed and configured but not yet wired end-to-end. See `rfcs/26-07-02_backend_notes.md` for the full picture and roadmap.
+Dante is in an early prototype phase: there is no auth, and a few pieces (MCP tool-calling, the local llama.cpp backend) are designed and configured but not yet wired end-to-end. Conversations and config persist across restarts via a SQLite database at `server/dante.db`, created automatically on first run.
 
 ## Tech stack
 
 - **Frontend:** React 19, Vite, Mantine 9, Vercel AI SDK (`@ai-sdk/react`)
 - **Backend:** Deno, Hono, Vercel AI SDK (`ai`, `@ai-sdk/openai-compatible`)
+- **Database:** SQLite (`@db/sqlite`) — `server/dante.db`, created on first run
 - **Shared types** between client and server via a `@shared` alias
 
 ## Getting started
@@ -37,3 +38,9 @@ pnpm dev
 ```
 
 Open http://localhost:5173, start a new conversation, and send a message to see it stream.
+
+## Notes
+
+- The first `deno task dev` downloads a prebuilt SQLite shared library into Deno's cache (subsequent runs are offline). Point `DENO_SQLITE_PATH` at a local library to bypass the download.
+- `deno.json` already passes `--env-file`, so the cleanest way to provide the key is a `server/.env` file with `MODEL_PROVIDER_API_KEY=...`. The `export` step above is only needed if you prefer setting it in your shell.
+your shell.

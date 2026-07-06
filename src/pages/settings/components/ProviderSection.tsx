@@ -1,4 +1,4 @@
-import { Button, Stack } from "@mantine/core";
+import { Button, EmptyState, Stack } from "@mantine/core";
 import { IconApi, IconPlus } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import type { Provider } from "@shared/types.ts";
@@ -25,15 +25,36 @@ export function ProviderSection({ providers }: { providers: Provider[] }) {
             onClick={() => navigate(`/settings/providers/${provider.id}`)}
           />
         ))}
-        <Button
-          variant="transparent"
-          color="gray"
-          leftSection={<IconPlus size={16} />}
-          justify="flex-start"
-          onClick={() => navigate("/settings/providers/new")}
-        >
-          Anbieter hinzufügen
-        </Button>
+        {providers.length === 0 ? (
+          <EmptyState>
+            <EmptyState.Indicator>
+              <IconApi />
+            </EmptyState.Indicator>
+            <EmptyState.Title>Noch keine Anbieter</EmptyState.Title>
+            <EmptyState.Description>
+              Lege einen Modellanbieter an, um Modelle für deine Presets
+              nutzbar zu machen.
+            </EmptyState.Description>
+            <Button
+              variant="transparent"
+              color="gray"
+              leftSection={<IconPlus size={16} />}
+              onClick={() => navigate("/settings/providers/new")}
+            >
+              Anbieter hinzufügen
+            </Button>
+          </EmptyState>
+        ) : (
+          <Button
+            variant="transparent"
+            color="gray"
+            leftSection={<IconPlus size={16} />}
+            justify="flex-start"
+            onClick={() => navigate("/settings/providers/new")}
+          >
+            Anbieter hinzufügen
+          </Button>
+        )}
       </Stack>
     </Stack>
   );

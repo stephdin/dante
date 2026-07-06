@@ -27,7 +27,7 @@ export function ListItem({
       <Group gap="sm" wrap="nowrap" justify="space-between">
         <Group gap="sm" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
           {icon && (
-            <ThemeIcon variant="light" color="gray" size="sm">
+            <ThemeIcon variant="transparent" color="gray" size="sm">
               {icon}
             </ThemeIcon>
           )}

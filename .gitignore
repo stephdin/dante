@@ -16,6 +16,11 @@ dist-ssr
 .env
 server/.env
 
+# SQLite database (created on first run)
+server/dante.db
+server/dante.db-wal
+server/dante.db-shm
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

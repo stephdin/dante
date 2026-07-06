@@ -1,4 +1,4 @@
-import { Button, Stack } from "@mantine/core";
+import { Button, EmptyState, Stack } from "@mantine/core";
 import { IconBrain, IconPlus } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import type { Assistant } from "@shared/types.ts";
@@ -25,15 +25,36 @@ export function AssistantSection({ assistants }: { assistants: Assistant[] }) {
             onClick={() => navigate(`/settings/assistants/${assistant.id}`)}
           />
         ))}
-        <Button
-          variant="transparent"
-          color="gray"
-          leftSection={<IconPlus size={16} />}
-          justify="flex-start"
-          onClick={() => navigate("/settings/assistants/new")}
-        >
-          Assistent hinzufügen
-        </Button>
+        {assistants.length === 0 ? (
+          <EmptyState>
+            <EmptyState.Indicator>
+              <IconBrain />
+            </EmptyState.Indicator>
+            <EmptyState.Title>Noch keine Assistenten</EmptyState.Title>
+            <EmptyState.Description>
+              Lege einen Assistenten mit einem System-Prompt an, den du in
+              Presets verwenden kannst.
+            </EmptyState.Description>
+            <Button
+              variant="transparent"
+              color="gray"
+              leftSection={<IconPlus size={16} />}
+              onClick={() => navigate("/settings/assistants/new")}
+            >
+              Assistent hinzufügen
+            </Button>
+          </EmptyState>
+        ) : (
+          <Button
+            variant="transparent"
+            color="gray"
+            leftSection={<IconPlus size={16} />}
+            justify="flex-start"
+            onClick={() => navigate("/settings/assistants/new")}
+          >
+            Assistent hinzufügen
+          </Button>
+        )}
       </Stack>
     </Stack>
   );

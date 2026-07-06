@@ -1,4 +1,4 @@
-import { Badge, Button, Stack } from "@mantine/core";
+import { Badge, Button, EmptyState, Stack } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import type { Assistant, McpConnection, Preset, Provider } from "@shared/types.ts";
@@ -6,6 +6,11 @@ import type { Assistant, McpConnection, Preset, Provider } from "@shared/types.t
 import { presetIcon } from "../../../config/presetIcons.ts";
 import { ListItem } from "./ListItem.tsx";
 import { SectionHeader } from "./SectionHeader.tsx";
+
+// Icon shown in the empty-state empty-indicator. Hoisted to module scope so the
+// component body doesn't allocate it on every render and so the empty state
+// can render it as JSX (you can't invoke a forwardRef component as a function).
+const EmptyStateIcon = presetIcon("sparkles");
 
 export function PresetSection({
   presets,
@@ -19,6 +24,8 @@ export function PresetSection({
   mcps: McpConnection[];
 }) {
   const navigate = useNavigate();
+
+  const hasDeps = providers.length > 0 && assistants.length > 0;
 
   return (
     <Stack gap="xs">
@@ -62,15 +69,37 @@ export function PresetSection({
             />
           );
         })}
-        <Button
-          variant="transparent"
-          color="gray"
-          leftSection={<IconPlus size={16} />}
-          justify="flex-start"
-          onClick={() => navigate("/settings/presets/new")}
-        >
-          Preset hinzufügen
-        </Button>
+        {presets.length === 0 ? (
+          <EmptyState>
+            <EmptyState.Indicator>
+              <EmptyStateIcon size={32} />
+            </EmptyState.Indicator>
+            <EmptyState.Title>Noch keine Presets</EmptyState.Title>
+            <EmptyState.Description>
+              {hasDeps
+                ? "Leg dein erstes Preset an, um zu chatten."
+                : "Erst Anbieter und Assistenten anlegen, dann ein Preset."}
+            </EmptyState.Description>
+            <Button
+              variant="transparent"
+              color="gray"
+              leftSection={<IconPlus size={16} />}
+              onClick={() => navigate("/settings/presets/new")}
+            >
+              Preset hinzufügen
+            </Button>
+          </EmptyState>
+        ) : (
+          <Button
+            variant="transparent"
+            color="gray"
+            leftSection={<IconPlus size={16} />}
+            justify="flex-start"
+            onClick={() => navigate("/settings/presets/new")}
+          >
+            Preset hinzufügen
+          </Button>
+        )}
       </Stack>
     </Stack>
   );

@@ -6,9 +6,12 @@ import {
   Menu,
   Paper,
   Stack,
+  Text,
   Textarea,
+  ThemeIcon,
 } from "@mantine/core";
-import { IconCheck } from "@tabler/icons-react";
+import { IconCheck, IconSparkles } from "@tabler/icons-react";
+import { useNavigate } from "react-router-dom";
 
 import { useConfig } from "../api/queries.ts";
 import { presetIcon } from "../config/presetIcons.ts";
@@ -24,8 +27,45 @@ export function ChatInput({
 }) {
   const { data: config } = useConfig();
   const presets = config?.presets ?? [];
+  const hasProviders = (config?.providers.length ?? 0) > 0;
+  const hasAssistants = (config?.assistants.length ?? 0) > 0;
   const [value, setValue] = useState("");
   const [presetId, setPresetId] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  // Show a nudge when no presets exist — the app can't chat without them.
+  if (presets.length === 0) {
+    return (
+      <Container size="md" p={0}>
+        <Paper radius="lg" shadow="md" p="md" withBorder>
+          <Stack align="center" gap="md">
+            <ThemeIcon variant="transparent" color="gray" size="lg">
+              <IconSparkles size={24} />
+            </ThemeIcon>
+            <Stack gap={4} align="center">
+              <Text size="sm" fw={500}>
+                Noch kein Preset konfiguriert
+              </Text>
+              <Text size="xs" c="dimmed" ta="center">
+                {!hasProviders || !hasAssistants
+                  ? "Erst Anbieter und Assistenten anlegen, dann ein Preset."
+                  : "Leg ein Preset an, um zu chatten."}
+              </Text>
+            </Stack>
+            <Button
+              variant="subtle"
+              color="gray"
+              size="sm"
+              onClick={() => navigate("/settings/presets/new")}
+            >
+              Preset anlegen
+            </Button>
+          </Stack>
+        </Paper>
+      </Container>
+    );
+  }
+
   // Fall back to the default preset, then to the first available one.
   const preset =
     presets.find((p) => p.id === presetId) ??

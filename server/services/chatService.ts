@@ -109,9 +109,10 @@ export async function streamChat({ messages, conversationId, presetId }: ChatReq
           : undefined,
       };
 
-      // Persist the assistant reply after streaming. Fire-and-forget is fine
-      // for the in-memory mock, but should probably be awaited once SQLite
-      // lands so errors don't silently drop messages.
+      // Persist the assistant reply after the stream ends. Fire-and-forget with
+      // a logged catch: the stream response is already on its way to the client,
+      // so a persist failure here must not fail the (already-completed) response —
+      // but we log it loudly so a silent message drop is visible in the logs.
       conversationRepository
         .appendMessage(conversationId, {
           id: crypto.randomUUID(),
@@ -160,7 +161,7 @@ function findLastUserMessage(messages: UIMessage[]): UIMessage | undefined {
 }
 
 // Join the text parts of a UIMessage into a single string for persistence.
-// Non-text parts are ignored because the mock storage only stores plain text.
+// Non-text parts are dropped because the messages.text column is plain text.
 function uiMessageText(msg: UIMessage): string {
   let text = "";
   for (const part of msg.parts) {

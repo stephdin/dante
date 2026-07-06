@@ -1,44 +1,17 @@
-// Shared domain types used by both the Deno backend (server/) and the React
-// frontend (src/). Keeping them in one place avoids drift between the API
-// responses and the components that consume them.
+// Shared domain types. Config entity types are derived from Zod schemas in
+// `shared/schemas/config.ts` to keep validation and types in sync. Message and
+// conversation types are handwritten here — they flow through the chat path
+// (AI SDK) and aren't user-facing config forms, so a Zod schema adds no value.
 
-export type Model = {
-  id: string;
-  name: string;
-};
-
-export type Provider = {
-  id: string;
-  name: string;
-  type: string;
-  url: string;
-  models: Model[];
-};
-
-export type Assistant = {
-  id: string;
-  name: string;
-  prompt: string;
-};
-
-export type McpConnection = {
-  id: string;
-  name: string;
-  transport: string;
-  status: "connected" | "disconnected";
-};
-
-export type Preset = {
-  id: string;
-  name: string;
-  // Icon components live on the frontend only; the backend sends a stable id
-  // that the UI maps to a Tabler icon (see src/config/presetIcons.ts).
-  iconId: string;
-  modelId: string;
-  assistantId: string;
-  mcpIds: string[];
-  default: boolean;
-};
+// Re-export config types — pure type re-export, fully erased at compile time.
+export type {
+  Model,
+  Provider,
+  Assistant,
+  McpConnection,
+  Preset,
+  Config,
+} from "./schemas/config.ts";
 
 export type MessageStats = {
   provider?: string;
@@ -84,11 +57,4 @@ export type ConversationSummary = {
   label: string;
   preview: string;
   updatedAt: string; // ISO 8601
-};
-
-export type Config = {
-  providers: Provider[];
-  assistants: Assistant[];
-  mcps: McpConnection[];
-  presets: Preset[];
 };
