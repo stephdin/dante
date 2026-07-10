@@ -1,10 +1,11 @@
+import { memo } from "react";
 import { ActionIcon, Box, Group, Paper, Text } from "@mantine/core";
 import { IconCopy, IconRefresh, IconTrash } from "@tabler/icons-react";
 import { useDisplaySettings } from "../context/DisplaySettingsContext.tsx";
 import { formatTime } from "../utils/formatDate.ts";
 import { useMessageActions } from "./useMessageActions.ts";
 
-export function UserMessage({
+export const UserMessage = memo(function UserMessage({
   text,
   createdAt,
   last = false,
@@ -70,4 +71,4 @@ export function UserMessage({
       </Group>
     </Box>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { configRepository } from "../repositories/configRepository.ts";
+import type { ConfigRepository } from "../repositories/configRepository.ts";
 import { AppError } from "../lib/errors.ts";
 import type {
   Config,
@@ -8,186 +8,187 @@ import type {
   Preset,
 } from "../../shared/types.ts";
 
-// ── Read ─────────────────────────────────────────────────────────────────
+// Factory: builds a ConfigService bound to the supplied repository. All
+// cross-entity rules ("in use by preset", defaults uniqueness) live here; the
+// repository is a plain CRUD boundary. The repository is injected by `main.ts`
+// (or a test), so this module no longer reaches for a module-eval-time
+// singleton.
+export function createConfigService(repo: ConfigRepository) {
+  return {
+    // ── Read ─────────────────────────────────────────────────────────────
 
-export async function getConfig(): Promise<Config> {
-  return configRepository.getConfig();
-}
+    async getConfig(): Promise<Config> {
+      return repo.getConfig();
+    },
 
-// ── Providers ────────────────────────────────────────────────────────────
+    // ── Providers ───────────────────────────────────────────────────────
 
-export async function createProvider(
-  input: Omit<Provider, "id">,
-): Promise<Provider> {
-  return configRepository.createProvider(input);
-}
+    async createProvider(
+      input: Omit<Provider, "id">,
+    ): Promise<Provider> {
+      return repo.createProvider(input);
+    },
 
-export async function updateProvider(id: string, input: Provider): Promise<void> {
-  await ensureProviderExists(id);
-  return configRepository.updateProvider(id, input);
-}
+    async updateProvider(id: string, input: Provider): Promise<void> {
+      await ensureProviderExists(id);
+      return repo.updateProvider(id, input);
+    },
 
-export async function deleteProvider(id: string): Promise<void> {
-  const config = await configRepository.getConfig();
-  const provider = config.providers.find((p) => p.id === id);
-  if (!provider) throw new AppError("Provider not found", 404);
+    async deleteProvider(id: string): Promise<void> {
+      const config = await repo.getConfig();
+      const provider = config.providers.find((p) => p.id === id);
+      if (!provider) throw new AppError("Provider not found", 404);
 
-  // Check if any preset references a model from this provider.
-  const modelIds = new Set(provider.models.map((m) => m.id));
-  const blockedBy = config.presets.filter((p) => modelIds.has(p.modelId));
-  if (blockedBy.length > 0) {
-    throw new AppError(
-      `Provider in use by presets: ${blockedBy.map((p) => p.name).join(", ")}`,
-      409,
-    );
+      // Check if any preset references a model from this provider.
+      const modelIds = new Set(provider.models.map((m) => m.id));
+      const blockedBy = config.presets.filter((p) => modelIds.has(p.modelId));
+      if (blockedBy.length > 0) {
+        throw new AppError(
+          `Provider in use by presets: ${blockedBy.map((p) => p.name).join(", ")}`,
+          409,
+        );
+      }
+
+      return repo.deleteProvider(id);
+    },
+
+    // ── Assistants ───────────────────────────────────────────────────────
+
+    async createAssistant(
+      input: Omit<Assistant, "id">,
+    ): Promise<Assistant> {
+      return repo.createAssistant(input);
+    },
+
+    async updateAssistant(
+      id: string,
+      input: Assistant,
+    ): Promise<void> {
+      await ensureAssistantExists(id);
+      return repo.updateAssistant(id, input);
+    },
+
+    async deleteAssistant(id: string): Promise<void> {
+      const config = await repo.getConfig();
+      if (!config.assistants.find((a) => a.id === id)) {
+        throw new AppError("Assistant not found", 404);
+      }
+
+      const blockedBy = config.presets.filter((p) => p.assistantId === id);
+      if (blockedBy.length > 0) {
+        throw new AppError(
+          `Assistant in use by presets: ${blockedBy.map((p) => p.name).join(", ")}`,
+          409,
+        );
+      }
+
+      return repo.deleteAssistant(id);
+    },
+
+    // ── MCPs ────────────────────────────────────────────────────────────
+
+    async createMcp(
+      input: Omit<McpConnection, "id" | "status">,
+    ): Promise<McpConnection> {
+      return repo.createMcp(input);
+    },
+
+    async updateMcp(
+      id: string,
+      input: Omit<McpConnection, "id" | "status">,
+    ): Promise<void> {
+      await ensureMcpExists(id);
+      return repo.updateMcp(id, input);
+    },
+
+    async deleteMcp(id: string): Promise<void> {
+      const config = await repo.getConfig();
+      if (!config.mcps.find((m) => m.id === id)) {
+        throw new AppError("MCP not found", 404);
+      }
+
+      const blockedBy = config.presets.filter((p) => p.mcpIds.includes(id));
+      if (blockedBy.length > 0) {
+        throw new AppError(
+          `MCP in use by presets: ${blockedBy.map((p) => p.name).join(", ")}`,
+          409,
+        );
+      }
+
+      return repo.deleteMcp(id);
+    },
+
+    // ── Presets ─────────────────────────────────────────────────────────
+    // "Clear other defaults" is enforced inside the repo's createPreset/
+    // updatePreset transaction (see configSqlite.ts) — both for atomicity and
+    // so the partial unique index idx_presets_single_default can't reject the
+    // write mid-transaction. Previously this happened here, after the write,
+    // in its own loop of separate updatePreset transactions.
+
+    async createPreset(
+      input: Omit<Preset, "id">,
+    ): Promise<Preset> {
+      return repo.createPreset(input);
+    },
+
+    async updatePreset(id: string, input: Preset): Promise<void> {
+      await ensurePresetExists(id);
+      return repo.updatePreset(id, input);
+    },
+
+    async deletePreset(id: string): Promise<void> {
+      const config = await repo.getConfig();
+      if (!config.presets.find((p) => p.id === id)) {
+        throw new AppError("Preset not found", 404);
+      }
+      return repo.deletePreset(id);
+    },
+
+    // ── Chat config resolution ──────────────────────────────────────────
+
+    async resolveChatConfig(presetId?: string) {
+      const config = await repo.getConfig();
+      const modelId = resolveModelFromConfig(config, presetId);
+      const provider = resolveProviderFromConfig(config, modelId);
+      const instructions = resolveInstructionsFromConfig(config, presetId);
+      return { modelId, provider, instructions };
+    },
+  };
+
+  // ── Helpers (closures over `repo`) ────────────────────────────────────
+
+  async function ensureProviderExists(id: string): Promise<void> {
+    const config = await repo.getConfig();
+    if (!config.providers.find((p) => p.id === id)) {
+      throw new AppError("Provider not found", 404);
+    }
   }
 
-  return configRepository.deleteProvider(id);
-}
-
-// ── Assistants ───────────────────────────────────────────────────────────
-
-export async function createAssistant(
-  input: Omit<Assistant, "id">,
-): Promise<Assistant> {
-  return configRepository.createAssistant(input);
-}
-
-export async function updateAssistant(
-  id: string,
-  input: Assistant,
-): Promise<void> {
-  await ensureAssistantExists(id);
-  return configRepository.updateAssistant(id, input);
-}
-
-export async function deleteAssistant(id: string): Promise<void> {
-  const config = await configRepository.getConfig();
-  if (!config.assistants.find((a) => a.id === id)) {
-    throw new AppError("Assistant not found", 404);
+  async function ensureAssistantExists(id: string): Promise<void> {
+    const config = await repo.getConfig();
+    if (!config.assistants.find((a) => a.id === id)) {
+      throw new AppError("Assistant not found", 404);
+    }
   }
 
-  const blockedBy = config.presets.filter((p) => p.assistantId === id);
-  if (blockedBy.length > 0) {
-    throw new AppError(
-      `Assistant in use by presets: ${blockedBy.map((p) => p.name).join(", ")}`,
-      409,
-    );
+  async function ensureMcpExists(id: string): Promise<void> {
+    const config = await repo.getConfig();
+    if (!config.mcps.find((m) => m.id === id)) {
+      throw new AppError("MCP not found", 404);
+    }
   }
 
-  return configRepository.deleteAssistant(id);
-}
-
-// ── MCPs ─────────────────────────────────────────────────────────────────
-
-export async function createMcp(
-  input: Omit<McpConnection, "id" | "status">,
-): Promise<McpConnection> {
-  return configRepository.createMcp(input);
-}
-
-export async function updateMcp(id: string, input: McpConnection): Promise<void> {
-  await ensureMcpExists(id);
-  return configRepository.updateMcp(id, input);
-}
-
-export async function deleteMcp(id: string): Promise<void> {
-  const config = await configRepository.getConfig();
-  if (!config.mcps.find((m) => m.id === id)) {
-    throw new AppError("MCP not found", 404);
-  }
-
-  const blockedBy = config.presets.filter((p) => p.mcpIds.includes(id));
-  if (blockedBy.length > 0) {
-    throw new AppError(
-      `MCP in use by presets: ${blockedBy.map((p) => p.name).join(", ")}`,
-      409,
-    );
-  }
-
-  return configRepository.deleteMcp(id);
-}
-
-// ── Presets ──────────────────────────────────────────────────────────────
-
-export async function createPreset(
-  input: Omit<Preset, "id">,
-): Promise<Preset> {
-  const preset = await configRepository.createPreset(input);
-  if (preset.default) {
-    await clearOtherDefaults(preset.id);
-  }
-  return preset;
-}
-
-export async function updatePreset(id: string, input: Preset): Promise<void> {
-  await ensurePresetExists(id);
-  if (input.default) {
-    await clearOtherDefaults(id);
-  }
-  return configRepository.updatePreset(id, input);
-}
-
-export async function deletePreset(id: string): Promise<void> {
-  const config = await configRepository.getConfig();
-  if (!config.presets.find((p) => p.id === id)) {
-    throw new AppError("Preset not found", 404);
-  }
-  return configRepository.deletePreset(id);
-}
-
-// ── Chat config resolution (unchanged) ───────────────────────────────────
-
-export async function resolveChatConfig(presetId?: string) {
-  const config = await configRepository.getConfig();
-  const modelId = resolveModelFromConfig(config, presetId);
-  const provider = resolveProviderFromConfig(config, modelId);
-  const instructions = resolveInstructionsFromConfig(config, presetId);
-  return { modelId, provider, instructions };
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────
-
-async function ensureProviderExists(id: string): Promise<void> {
-  const config = await configRepository.getConfig();
-  if (!config.providers.find((p) => p.id === id)) {
-    throw new AppError("Provider not found", 404);
-  }
-}
-
-async function ensureAssistantExists(id: string): Promise<void> {
-  const config = await configRepository.getConfig();
-  if (!config.assistants.find((a) => a.id === id)) {
-    throw new AppError("Assistant not found", 404);
-  }
-}
-
-async function ensureMcpExists(id: string): Promise<void> {
-  const config = await configRepository.getConfig();
-  if (!config.mcps.find((m) => m.id === id)) {
-    throw new AppError("MCP not found", 404);
-  }
-}
-
-async function ensurePresetExists(id: string): Promise<void> {
-  const config = await configRepository.getConfig();
-  if (!config.presets.find((p) => p.id === id)) {
-    throw new AppError("Preset not found", 404);
-  }
-}
-
-// Set default = false on every preset except the one being saved.
-async function clearOtherDefaults(presetId: string): Promise<void> {
-  const config = await configRepository.getConfig();
-  for (const preset of config.presets) {
-    if (preset.id !== presetId && preset.default) {
-      preset.default = false;
-      await configRepository.updatePreset(preset.id, preset);
+  async function ensurePresetExists(id: string): Promise<void> {
+    const config = await repo.getConfig();
+    if (!config.presets.find((p) => p.id === id)) {
+      throw new AppError("Preset not found", 404);
     }
   }
 }
 
-// ── Resolution helpers (unchanged) ───────────────────────────────────────
+export type ConfigService = ReturnType<typeof createConfigService>;
+
+// ── Resolution helpers (pure, no repo needed) ────────────────────────────
 
 function resolveModelFromConfig(config: Config, presetId?: string): string {
   if (presetId) {

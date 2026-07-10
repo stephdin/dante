@@ -1,6 +1,6 @@
-// SQLite-backed ConversationRepository. The singleton in
-// repositories/conversationRepository.ts is constructed by calling this factory
-// with the shared DB instance from getDb().
+// SQLite-backed ConversationRepository. main.ts constructs one instance of
+// this factory with the shared DB handle from getDb() and injects it into the
+// services that need it; no module-eval-time singleton is involved.
 //
 // All timestamps are ISO 8601 strings supplied by the caller — SQLite's
 // datetime('now') is intentionally avoided so the server controls time
@@ -113,6 +113,16 @@ export function createSqliteConversationRepository(
         "SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC",
       ).all<MessageRow>(id).map(rowToMessage);
       return { ...rowToConversation(conv), messages };
+    },
+
+    // Existence-only check used by the chat path. Cheaper than getConversation
+    // because it doesn't pull the conversation's messages — a single indexed
+    // primary-key lookup with a 1-cell result.
+    async existsConversation(id) {
+      const row = db.prepare("SELECT 1 FROM conversations WHERE id = ?").get<{
+        "1": number;
+      }>(id);
+      return row !== undefined;
     },
 
     // Creates an empty conversation with the default German label. The first

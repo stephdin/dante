@@ -1,5 +1,6 @@
-// SQLite-backed ConfigRepository. The singleton in repositories/configRepository.ts
-// is constructed by calling this factory with the shared DB instance from getDb().
+// SQLite-backed ConfigRepository. main.ts constructs one instance of this
+// factory with the shared DB handle from getDb() and injects it into the
+// services that need it; no module-eval-time singleton is involved.
 //
 // Reads assemble the normalized rows back into the nested `Config` shape. Writes
 // are CRUD per entity; the `models` table is re-synced when a provider is
@@ -142,19 +143,29 @@ function assembleConfig(rows: {
 export function createSqliteConfigRepository(
   db: Database,
 ): ConfigRepository {
+  // In-memory cache of the assembled Config. Invalidated by every write
+  // method below. The chat hot path calls resolveChatConfig → getConfig on
+  // every /api/chat request, so caching turns 6 SELECT * into a pointer
+  // return after the first read. Config is only mutated via these repo
+  // methods, so write-time invalidation is sufficient — no other code path
+  // touches these tables.
+  let cached: Config | undefined;
+
   return {
     // ── Read ───────────────────────────────────────────────────────────
-    // Six small reads; SQLite is fast and the config is tiny. Caching with
-    // invalidation can be layered on later (plan §5.4) without touching this
-    // method's signature.
+    // Six small reads; SQLite is fast and the config is tiny. Cached above
+    // so the chat hot path (resolveChatConfig → getConfig per request) skips
+    // the round-trips after the first read.
     async getConfig() {
+      if (cached) return cached;
       const providers = db.prepare("SELECT * FROM providers").all<ProviderRow>();
       const models = db.prepare("SELECT * FROM models").all<ModelRow>();
       const assistants = db.prepare("SELECT * FROM assistants").all<AssistantRow>();
       const mcps = db.prepare("SELECT * FROM mcp_connections").all<McpRow>();
       const presets = db.prepare("SELECT * FROM presets").all<PresetRow>();
       const presetMcps = db.prepare("SELECT * FROM preset_mcps").all<PresetMcpRow>();
-      return assembleConfig({ providers, models, assistants, mcps, presets, presetMcps });
+      cached = assembleConfig({ providers, models, assistants, mcps, presets, presetMcps });
+      return cached;
     },
 
     // ── Providers ──────────────────────────────────────────────────────
@@ -173,6 +184,7 @@ export function createSqliteConfigRepository(
           insertModel.run(m.id, id, m.name);
         }
       })();
+      cached = undefined;
       return provider;
     },
 
@@ -195,6 +207,7 @@ export function createSqliteConfigRepository(
           insertModel.run(m.id, id, m.name);
         }
       })();
+      cached = undefined;
     },
 
     async deleteProvider(id) {
@@ -202,6 +215,7 @@ export function createSqliteConfigRepository(
       // .run() returns the number of affected rows directly.
       const changes = db.prepare("DELETE FROM providers WHERE id = ?").run(id);
       if (changes === 0) throw new Error("Provider not found");
+      cached = undefined;
     },
 
     // ── Assistants ─────────────────────────────────────────────────────
@@ -212,6 +226,7 @@ export function createSqliteConfigRepository(
       db.prepare(
         "INSERT INTO assistants (id, name, prompt, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
       ).run(id, input.name, input.prompt, now, now);
+      cached = undefined;
       return assistant;
     },
 
@@ -222,6 +237,7 @@ export function createSqliteConfigRepository(
       db.prepare(
         "UPDATE assistants SET name = ?, prompt = ?, updated_at = ? WHERE id = ?",
       ).run(input.name, input.prompt, now, id);
+      cached = undefined;
     },
 
     async deleteAssistant(id) {
@@ -231,6 +247,7 @@ export function createSqliteConfigRepository(
       // rather than swallowing it.
       const changes = db.prepare("DELETE FROM assistants WHERE id = ?").run(id);
       if (changes === 0) throw new Error("Assistant not found");
+      cached = undefined;
     },
 
     // ── MCPs ────────────────────────────────────────────────────────────
@@ -248,6 +265,7 @@ export function createSqliteConfigRepository(
       db.prepare(
         "INSERT INTO mcp_connections (id, name, transport, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
       ).run(id, input.name, input.transport, "disconnected", now, now);
+      cached = undefined;
       return mcp;
     },
 
@@ -255,15 +273,20 @@ export function createSqliteConfigRepository(
       const exists = db.prepare("SELECT 1 FROM mcp_connections WHERE id = ?").get(id);
       if (!exists) throw new Error("MCP not found");
       const now = new Date().toISOString();
+      // status is intentionally not written here — it's server-managed
+      // (created as "disconnected", advanced by the future MCP connection
+      // lifecycle). Clients can update name/transport only.
       db.prepare(
-        "UPDATE mcp_connections SET name = ?, transport = ?, status = ?, updated_at = ? WHERE id = ?",
-      ).run(input.name, input.transport, input.status, now, id);
+        "UPDATE mcp_connections SET name = ?, transport = ?, updated_at = ? WHERE id = ?",
+      ).run(input.name, input.transport, now, id);
+      cached = undefined;
     },
 
     async deleteMcp(id) {
       // ON DELETE CASCADE on preset_mcps.mcp_id removes the junction rows.
       const changes = db.prepare("DELETE FROM mcp_connections WHERE id = ?").run(id);
       if (changes === 0) throw new Error("MCP not found");
+      cached = undefined;
     },
 
     // ── Presets ────────────────────────────────────────────────────────
@@ -272,6 +295,15 @@ export function createSqliteConfigRepository(
       const now = new Date().toISOString();
       const preset: Preset = { id, ...input };
       db.transaction(() => {
+        // Clear other defaults first. The partial unique index
+        // idx_presets_single_default (migration v2) rejects a second
+        // is_default = 1 row at INSERT time, so clearing before our own
+        // INSERT keeps the invariant inside this transaction.
+        if (input.default) {
+          db.prepare(
+            "UPDATE presets SET is_default = 0, updated_at = ? WHERE is_default = 1",
+          ).run(now);
+        }
         db.prepare(
           "INSERT INTO presets (id, name, icon_id, model_id, assistant_id, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         ).run(
@@ -292,6 +324,7 @@ export function createSqliteConfigRepository(
           link.run(id, mcpId);
         }
       })();
+      cached = undefined;
       return preset;
     },
 
@@ -300,6 +333,15 @@ export function createSqliteConfigRepository(
       if (!exists) throw new Error("Preset not found");
       const now = new Date().toISOString();
       db.transaction(() => {
+        // Clear other defaults first (excluding self). Order matters: SQLite
+        // checks the partial unique index at statement time, so without
+        // this the UPDATE of our own row to is_default = 1 would trip the
+        // index while another default still exists.
+        if (input.default) {
+          db.prepare(
+            "UPDATE presets SET is_default = 0, updated_at = ? WHERE is_default = 1 AND id != ?",
+          ).run(now, id);
+        }
         db.prepare(
           "UPDATE presets SET name = ?, icon_id = ?, model_id = ?, assistant_id = ?, is_default = ?, updated_at = ? WHERE id = ?",
         ).run(
@@ -320,12 +362,14 @@ export function createSqliteConfigRepository(
           link.run(id, mcpId);
         }
       })();
+      cached = undefined;
     },
 
     async deletePreset(id) {
       // ON DELETE CASCADE on preset_mcps.preset_id removes the junction rows.
       const changes = db.prepare("DELETE FROM presets WHERE id = ?").run(id);
       if (changes === 0) throw new Error("Preset not found");
+      cached = undefined;
     },
   };
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import {
   ActionIcon,
   Box,
@@ -27,16 +27,7 @@ import { formatTime } from "../utils/formatDate.ts";
 import { useMessageActions } from "./useMessageActions.ts";
 import classes from "./AgentMessage.module.css";
 
-export function AgentMessage({
-  text,
-  reasoning,
-  stats,
-  createdAt,
-  last = false,
-  reasoningStreaming = false,
-  starred = false,
-  waiting = false,
-}: {
+type AgentMessageProps = {
   text: string;
   reasoning?: string;
   stats?: MessageStats;
@@ -45,151 +36,184 @@ export function AgentMessage({
   reasoningStreaming?: boolean;
   starred?: boolean;
   waiting?: boolean;
-}) {
-  const { ref, actionsStyle } = useMessageActions();
-  const { settings } = useDisplaySettings();
-  const [reasoningOpen, setReasoningOpen] = useState(false);
-  const hasReasoning = !!reasoning && reasoning.trim().length > 0;
+};
 
-  // Track reasoning duration client-side so we can show it immediately
-  // when reasoning finishes, rather than waiting for the full message
-  // stats (which only arrive on the finish part).
-  const reasoningStartAt = useRef<number | null>(null);
-  const [localReasoningTimeMs, setLocalReasoningTimeMs] = useState<number>();
+export const AgentMessage = memo(
+  function AgentMessage({
+    text,
+    reasoning,
+    stats,
+    createdAt,
+    last = false,
+    reasoningStreaming = false,
+    starred = false,
+    waiting = false,
+  }: AgentMessageProps) {
+    const { ref, actionsStyle } = useMessageActions();
+    const { settings } = useDisplaySettings();
+    const [reasoningOpen, setReasoningOpen] = useState(false);
+    const hasReasoning = !!reasoning && reasoning.trim().length > 0;
 
-  useEffect(() => {
-    if (reasoningStreaming && reasoningStartAt.current == null) {
-      reasoningStartAt.current = performance.now();
-    }
-    if (!reasoningStreaming && reasoningStartAt.current != null) {
-      setLocalReasoningTimeMs(performance.now() - reasoningStartAt.current);
-      reasoningStartAt.current = null;
-    }
-  }, [reasoningStreaming]);
+    // Track reasoning duration client-side so we can show it immediately
+    // when reasoning finishes, rather than waiting for the full message
+    // stats (which only arrive on the finish part).
+    const reasoningStartAt = useRef<number | null>(null);
+    const [localReasoningTimeMs, setLocalReasoningTimeMs] = useState<number>();
 
-  const reasoningTimeMs =
-    localReasoningTimeMs ?? stats?.performance?.reasoningTimeMs;
-  const starredStyle: CSSProperties = starred
-    ? {
-        backgroundColor:
-          "color-mix(in srgb, var(--mantine-color-yellow-4) 10%, transparent)",
-        border:
-          "1px solid light-dark(color-mix(in srgb, var(--mantine-color-yellow-3) 50%, transparent), color-mix(in srgb, var(--mantine-color-yellow-6) 50%, transparent))",
+    useEffect(() => {
+      if (reasoningStreaming && reasoningStartAt.current == null) {
+        reasoningStartAt.current = performance.now();
       }
-    : {};
+      if (!reasoningStreaming && reasoningStartAt.current != null) {
+        setLocalReasoningTimeMs(performance.now() - reasoningStartAt.current);
+        reasoningStartAt.current = null;
+      }
+    }, [reasoningStreaming]);
 
-  return (
-    <Box ref={ref}>
-      <Paper p={starred ? "sm" : 0} radius="md" style={starredStyle}>
-        {waiting && (
-          <Text c="dimmed" fz="xs" mb="xs">
-            Warte auf Antwort…
-          </Text>
-        )}
-        {hasReasoning && (
-          <Box mb="xs">
-            <UnstyledButton
-              onClick={() => setReasoningOpen((o) => !o)}
-              c="dimmed"
-              fz="xs"
-              style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
-            >
-              <IconChevronDown
-                size={14}
-                style={{
-                  transform: reasoningOpen ? "rotate(0deg)" : "rotate(-90deg)",
-                  transition: "transform 120ms ease",
-                }}
-              />
-              {reasoningStreaming
-                ? "Denke nach…"
-                : reasoningTimeMs
-                  ? `Nachgedacht f\u00fcr ${formatDuration(reasoningTimeMs)}`
-                  : "Nachgedacht"}
-            </UnstyledButton>
-            <Collapse expanded={reasoningOpen}>
-              <Text
-                size="xs"
+    const reasoningTimeMs =
+      localReasoningTimeMs ?? stats?.performance?.reasoningTimeMs;
+    const starredStyle: CSSProperties = starred
+      ? {
+          backgroundColor:
+            "color-mix(in srgb, var(--mantine-color-yellow-4) 10%, transparent)",
+          border:
+            "1px solid light-dark(color-mix(in srgb, var(--mantine-color-yellow-3) 50%, transparent), color-mix(in srgb, var(--mantine-color-yellow-6) 50%, transparent))",
+        }
+      : {};
+
+    return (
+      <Box ref={ref}>
+        <Paper p={starred ? "sm" : 0} radius="md" style={starredStyle}>
+          {waiting && (
+            <Text c="dimmed" fz="xs" mb="xs">
+              Warte auf Antwort…
+            </Text>
+          )}
+          {hasReasoning && (
+            <Box mb="xs">
+              <UnstyledButton
+                onClick={() => setReasoningOpen((o) => !o)}
                 c="dimmed"
-                fs="italic"
-                mt={4}
-                style={{ whiteSpace: "pre-wrap" }}
+                fz="xs"
+                style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
               >
-                {reasoning}
-              </Text>
-            </Collapse>
-          </Box>
-        )}
-        <Typography className={classes.markdown}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
-        </Typography>
-        {/* Debug overlay: per-message provider stats. Shown as a single
+                <IconChevronDown
+                  size={14}
+                  style={{
+                    transform: reasoningOpen
+                      ? "rotate(0deg)"
+                      : "rotate(-90deg)",
+                    transition: "transform 120ms ease",
+                  }}
+                />
+                {reasoningStreaming
+                  ? "Denke nach…"
+                  : reasoningTimeMs
+                    ? `Nachgedacht f\u00fcr ${formatDuration(reasoningTimeMs)}`
+                    : "Nachgedacht"}
+              </UnstyledButton>
+              <Collapse expanded={reasoningOpen}>
+                <Text
+                  size="xs"
+                  c="dimmed"
+                  fs="italic"
+                  mt={4}
+                  style={{ whiteSpace: "pre-wrap" }}
+                >
+                  {reasoning}
+                </Text>
+              </Collapse>
+            </Box>
+          )}
+          <Typography className={classes.markdown}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+          </Typography>
+          {/* Debug overlay: per-message provider stats. Shown as a single
             compact line under the message content. */}
-        {(settings.showProviderStats || DEBUG_MESSAGE_STATS) && stats && (
-          <Text size="xs" c="dimmed" mt="xs">
-            {formatMessageStats(stats)}
-          </Text>
-        )}
-      </Paper>
-      <Group justify="flex-start" align="center" gap={4} mt="xs">
-        {settings.showTimestamps && createdAt && (
-          <Text size="xs" c="dimmed">
-            {formatTime(createdAt)}
-          </Text>
-        )}
-        {starred && (
-          <ActionIcon
-            variant="transparent"
-            color="yellow"
-            size="sm"
-            title="Markierung entfernen"
-          >
-            <IconStarFilled size={14} />
-          </ActionIcon>
-        )}
-        <Group gap={4} style={actionsStyle}>
-          {!starred && (
+          {(settings.showProviderStats || DEBUG_MESSAGE_STATS) && stats && (
+            <Text size="xs" c="dimmed" mt="xs">
+              {formatMessageStats(stats)}
+            </Text>
+          )}
+        </Paper>
+        <Group justify="flex-start" align="center" gap={4} mt="xs">
+          {settings.showTimestamps && createdAt && (
+            <Text size="xs" c="dimmed">
+              {formatTime(createdAt)}
+            </Text>
+          )}
+          {starred && (
+            <ActionIcon
+              variant="transparent"
+              color="yellow"
+              size="sm"
+              title="Markierung entfernen"
+            >
+              <IconStarFilled size={14} />
+            </ActionIcon>
+          )}
+          <Group gap={4} style={actionsStyle}>
+            {!starred && (
+              <ActionIcon
+                variant="transparent"
+                c="dimmed"
+                size="sm"
+                title="Markieren"
+              >
+                <IconStar size={14} />
+              </ActionIcon>
+            )}
             <ActionIcon
               variant="transparent"
               c="dimmed"
               size="sm"
-              title="Markieren"
+              title="Kopieren"
             >
-              <IconStar size={14} />
+              <IconCopy size={14} />
             </ActionIcon>
-          )}
-          <ActionIcon
-            variant="transparent"
-            c="dimmed"
-            size="sm"
-            title="Kopieren"
-          >
-            <IconCopy size={14} />
-          </ActionIcon>
-          {last && (
-            <>
-              <ActionIcon
-                variant="transparent"
-                c="dimmed"
-                size="sm"
-                title="Neu generieren"
-              >
-                <IconRefresh size={14} />
-              </ActionIcon>
-              <ActionIcon
-                variant="transparent"
-                c="dimmed"
-                size="sm"
-                title="Löschen"
-              >
-                <IconTrash size={14} />
-              </ActionIcon>
-            </>
-          )}
+            {last && (
+              <>
+                <ActionIcon
+                  variant="transparent"
+                  c="dimmed"
+                  size="sm"
+                  title="Neu generieren"
+                >
+                  <IconRefresh size={14} />
+                </ActionIcon>
+                <ActionIcon
+                  variant="transparent"
+                  c="dimmed"
+                  size="sm"
+                  title="Löschen"
+                >
+                  <IconTrash size={14} />
+                </ActionIcon>
+              </>
+            )}
+          </Group>
         </Group>
-      </Group>
-    </Box>
-  );
+      </Box>
+    );
+  },
+  (prev, next) =>
+    prev.text === next.text &&
+    prev.reasoning === next.reasoning &&
+    prev.stats === next.stats &&
+    prev.reasoningStreaming === next.reasoningStreaming &&
+    prev.starred === next.starred &&
+    prev.waiting === next.waiting &&
+    prev.last === next.last &&
+    createdAtEpoch(prev.createdAt) === createdAtEpoch(next.createdAt),
+);
+
+/** Normalise createdAt (Date | ISO string | undefined) to epoch ms for stable
+ *  comparison across renders where the same instant may be represented as
+ *  different types. */
+function createdAtEpoch(v?: string | Date): number {
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === "string") return new Date(v).getTime();
+  return 0;
 }
 
 // Compact single-line summary of provider/token/performance metadata shown

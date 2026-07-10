@@ -6,10 +6,6 @@ const MIGRATIONS: Array<{ version: number; sql: string }> = [
   {
     version: 1,
     sql: `
-      CREATE TABLE IF NOT EXISTS schema_version (
-        version INTEGER NOT NULL
-      );
-
       CREATE TABLE IF NOT EXISTS providers (
         id          TEXT PRIMARY KEY,
         name        TEXT NOT NULL,
@@ -83,6 +79,27 @@ const MIGRATIONS: Array<{ version: number; sql: string }> = [
         ON messages(conversation_id, created_at);
     `,
   },
+  {
+    // Enforce "exactly one default preset" at the DB level. The partial unique
+    // index permits many is_default = 0 rows but at most one is_default = 1.
+    // We first defensively collapse any pre-existing duplicates (keeping the
+    // most recently updated) so the index creation can't fail on a legacy DB.
+    version: 2,
+    sql: `
+      UPDATE presets
+        SET is_default = 0
+        WHERE is_default = 1
+          AND id NOT IN (
+            SELECT id FROM presets
+            WHERE is_default = 1
+            ORDER BY updated_at DESC
+            LIMIT 1
+          );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_presets_single_default
+        ON presets(is_default) WHERE is_default = 1;
+    `,
+  },
 ];
 
 // The single shared DB instance. Opened on the first call to getDb() and
@@ -117,6 +134,9 @@ export function openDatabase(
   runMigrations(newDb);
   return newDb; // no seeding — DB stays data-empty after migration
 }
+
+// Migrations array; exported so tests can derive the expected version.
+export const MIGRATIONS_COUNT = MIGRATIONS.length;
 
 // Apply any pending migrations. SELECT MAX(version) on an empty
 // schema_version table returns NULL, not an error — wrap in COALESCE so an

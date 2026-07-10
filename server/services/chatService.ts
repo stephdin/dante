@@ -4,8 +4,8 @@ import type { MessageStats } from "../../shared/types.ts";
 import { createModelProvider } from "../lib/modelProvider.ts";
 import { AppError } from "../lib/errors.ts";
 import { log } from "../lib/log.ts";
-import { conversationRepository } from "../repositories/conversationRepository.ts";
-import * as configService from "./configService.ts";
+import type { ConversationRepository } from "../repositories/conversationRepository.ts";
+import type { ConfigService } from "./configService.ts";
 
 export type ChatRequestBody = {
   messages: UIMessage[];
@@ -13,147 +13,167 @@ export type ChatRequestBody = {
   presetId?: string;
 };
 
-// Orchestrates a chat request: resolves provider/model/instructions, persists
-// the latest user message, streams the assistant reply, and persists the
-// assistant message when the stream ends. Throws AppError for 4xx/5xx cases
-// that should be surfaced as HTTP responses.
-export async function streamChat({ messages, conversationId, presetId }: ChatRequestBody) {
-  const { provider, modelId, instructions } = await configService.resolveChatConfig(
-    presetId,
-  );
+// Factory: builds a chatService bound to the supplied config service,
+// conversation repository, and model provider API key. `main.ts` constructs
+// one instance and injects it into the chat route handler; tests pass fakes.
+//
+// The API key is read once at boot by `main.ts` and passed in here, so this
+// module no longer touches `Deno.env` at module-eval time.
+export function createChatService(opts: {
+  configService: ConfigService;
+  conversationRepo: ConversationRepository;
+  modelProviderApiKey: string | undefined;
+}) {
+  const { configService, conversationRepo, modelProviderApiKey } = opts;
 
-  const lastUser = findLastUserMessage(messages);
-  const preview = lastUser ? truncate(uiMessageText(lastUser), 50) : "";
-  log(
-    "CHAT",
-    `request conversation=${conversationId} preset=${presetId ?? "-"} provider=${provider.id} model=${modelId} messages=${messages.length} userMsg="${preview}"`,
-  );
+  // Orchestrates a chat request: resolves provider/model/instructions,
+  // persists the latest user message, streams the assistant reply, and
+  // persists the assistant message when the stream ends. Throws AppError for
+  // 4xx/5xx cases that should be surfaced as HTTP responses.
+  async function streamChat({ messages, conversationId, presetId }: ChatRequestBody) {
+    const { provider, modelId, instructions } = await configService.resolveChatConfig(
+      presetId,
+    );
 
-  const conversation = await conversationRepository.getConversation(conversationId);
-  if (!conversation) {
-    log("CHAT", `rejected: conversation ${conversationId} not found`);
-    throw new AppError("conversation not found", 404);
-  }
+    const lastUser = findLastUserMessage(messages);
+    const preview = lastUser ? truncate(uiMessageText(lastUser), 50) : "";
+    log(
+      "CHAT",
+      `request conversation=${conversationId} preset=${presetId ?? "-"} provider=${provider.id} model=${modelId} messages=${messages.length} userMsg="${preview}"`,
+    );
 
-  const apiKey = Deno.env.get("MODEL_PROVIDER_API_KEY");
-  if (!apiKey) {
-    log("CHAT", "rejected: MODEL_PROVIDER_API_KEY not set");
-    throw new AppError("MODEL_PROVIDER_API_KEY not set", 500);
-  }
+    // Existence check only — we don't need the conversation's message history
+    // here (the client streams the full UIMessage[] in the request body), so a
+    // primary-key lookup is enough and avoids loading every row.
+    const exists = await conversationRepo.existsConversation(conversationId);
+    if (!exists) {
+      log("CHAT", `rejected: conversation ${conversationId} not found`);
+      throw new AppError("conversation not found", 404);
+    }
 
-  // Persist the new user message before streaming so it survives a refresh
-  // even if the stream fails or the client disconnects.
-  if (lastUser) {
-    await conversationRepository.appendMessage(conversationId, {
-      id: crypto.randomUUID(),
-      role: "user",
-      text: uiMessageText(lastUser),
-      createdAt: new Date().toISOString(),
+    if (!modelProviderApiKey) {
+      throw new AppError("MODEL_PROVIDER_API_KEY not set", 500);
+    }
+
+    // Persist the new user message before streaming so it survives a refresh
+    // even if the stream fails or the client disconnects.
+    if (lastUser) {
+      await conversationRepo.appendMessage(conversationId, {
+        id: crypto.randomUUID(),
+        role: "user",
+        text: uiMessageText(lastUser),
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    const modelProvider = createModelProvider(provider.id, provider.url, modelProviderApiKey);
+
+    const streamStart = performance.now();
+    let firstOutputAt: number | undefined;
+    let reasoningStartAt: number | undefined;
+    let reasoningEndAt: number | undefined;
+
+    const result = streamText({
+      model: modelProvider.chatModel(modelId),
+      instructions,
+      messages: await convertToModelMessages(messages),
+      onChunk({ chunk }) {
+        if (chunk.type === "reasoning-delta" && !reasoningStartAt) {
+          reasoningStartAt = performance.now();
+        }
+        if (chunk.type === "reasoning-end") {
+          reasoningEndAt = performance.now();
+        }
+        if (
+          !firstOutputAt &&
+          (chunk.type === "text-delta" || chunk.type === "reasoning-delta")
+        ) {
+          firstOutputAt = performance.now();
+        }
+      },
+      onError({ error }) {
+        log("CHAT", `error: ${String(error)}`);
+      },
+      onEnd({ text, reasoning, finishReason, usage, response, steps }) {
+        const stepPerformance = steps?.at(-1)?.performance;
+        // reasoningTimeMs is measured from onChunk (more precise than
+        // stepPerformance which starts counting from step begin).
+        const reasoningTimeMs = reasoningStartAt && reasoningEndAt
+          ? reasoningEndAt - reasoningStartAt
+          : undefined;
+
+        const stats: MessageStats = {
+          provider: provider.name,
+          modelId,
+          responseId: response?.id,
+          finishReason,
+          usage: mapUsageToStats(usage),
+          // For the persisted message we keep the SDK's own performance figures
+          // (incl. timeToFirstOutputMs) — it has access to richer timing data
+          // than our coarse streamStart/TTFT measurement above.
+          // reasoningTimeMs is our own measurement because the SDK doesn't
+          // expose reasoning-specific timing yet.
+          performance: stepPerformance
+            ? {
+              responseTimeMs: stepPerformance.responseTimeMs,
+              timeToFirstOutputMs: stepPerformance.timeToFirstOutputMs,
+              reasoningTimeMs,
+              outputTokensPerSecond: stepPerformance.outputTokensPerSecond,
+            }
+            : undefined,
+        };
+
+        // Persist the assistant reply after the stream ends. Fire-and-forget
+        // with a logged catch: the stream response is already on its way to
+        // the client, so a persist failure here must not fail the (already-
+        // completed) response — but we log it loudly so a silent message drop
+        // is visible in the logs.
+        conversationRepo
+          .appendMessage(conversationId, {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            text,
+            reasoning: extractReasoningText(reasoning),
+            stats,
+            createdAt: new Date().toISOString(),
+          })
+          .catch((err) => {
+            log("CHAT", `failed to persist assistant message: ${String(err)}`);
+          });
+      },
+    });
+
+    log("CHAT", "stream started");
+    return result.toUIMessageStream({
+      sendReasoning: true,
+      messageMetadata({ part }) {
+        // Match the shape the client reads (m.metadata.stats) and the shape
+        // we seed from persisted messages (metadata: { starred, stats }), so
+        // stats render identically during streaming and after a reload.
+        if (part.type === "start") {
+          return { starred: false };
+        }
+        if (part.type === "finish") {
+          return {
+            stats: buildStreamMessageStats({
+              provider,
+              modelId,
+              finishReason: part.finishReason,
+              totalUsage: part.totalUsage,
+              streamStart,
+              firstOutputAt,
+            }),
+          };
+        }
+        return undefined;
+      },
     });
   }
 
-  const modelProvider = createModelProvider(provider.id, provider.url, apiKey);
-
-  const streamStart = performance.now();
-  let firstOutputAt: number | undefined;
-  let reasoningStartAt: number | undefined;
-  let reasoningEndAt: number | undefined;
-
-  const result = streamText({
-    model: modelProvider.chatModel(modelId),
-    instructions,
-    messages: await convertToModelMessages(messages),
-    onChunk({ chunk }) {
-      if (chunk.type === "reasoning-delta" && !reasoningStartAt) {
-        reasoningStartAt = performance.now();
-      }
-      if (chunk.type === "reasoning-end") {
-        reasoningEndAt = performance.now();
-      }
-      if (
-        !firstOutputAt &&
-        (chunk.type === "text-delta" || chunk.type === "reasoning-delta")
-      ) {
-        firstOutputAt = performance.now();
-      }
-    },
-    onError({ error }) {
-      log("CHAT", `error: ${String(error)}`);
-    },
-    onEnd({ text, reasoning, finishReason, usage, response, steps }) {
-      const stepPerformance = steps?.at(-1)?.performance;
-      // reasoningTimeMs is measured from onChunk (more precise than
-      // stepPerformance which starts counting from step begin).
-      const reasoningTimeMs = reasoningStartAt && reasoningEndAt
-        ? reasoningEndAt - reasoningStartAt
-        : undefined;
-
-      const stats: MessageStats = {
-        provider: provider.name,
-        modelId,
-        responseId: response?.id,
-        finishReason,
-        usage: mapUsageToStats(usage),
-        // For the persisted message we keep the SDK's own performance figures
-        // (incl. timeToFirstOutputMs) — it has access to richer timing data
-        // than our coarse streamStart/TTFT measurement above.
-        // reasoningTimeMs is our own measurement because the SDK doesn't
-        // expose reasoning-specific timing yet.
-        performance: stepPerformance
-          ? {
-            responseTimeMs: stepPerformance.responseTimeMs,
-            timeToFirstOutputMs: stepPerformance.timeToFirstOutputMs,
-            reasoningTimeMs,
-            outputTokensPerSecond: stepPerformance.outputTokensPerSecond,
-          }
-          : undefined,
-      };
-
-      // Persist the assistant reply after the stream ends. Fire-and-forget with
-      // a logged catch: the stream response is already on its way to the client,
-      // so a persist failure here must not fail the (already-completed) response —
-      // but we log it loudly so a silent message drop is visible in the logs.
-      conversationRepository
-        .appendMessage(conversationId, {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          text,
-          reasoning: extractReasoningText(reasoning),
-          stats,
-          createdAt: new Date().toISOString(),
-        })
-        .catch((err) => {
-          log("CHAT", `failed to persist assistant message: ${String(err)}`);
-        });
-    },
-  });
-
-  log("CHAT", "stream started");
-  return result.toUIMessageStream({
-    sendReasoning: true,
-    messageMetadata({ part }) {
-      // Match the shape the client reads (m.metadata.stats) and the shape
-      // we seed from persisted messages (metadata: { starred, stats }), so
-      // stats render identically during streaming and after a reload.
-      if (part.type === "start") {
-        return { starred: false };
-      }
-      if (part.type === "finish") {
-        return {
-          stats: buildStreamMessageStats({
-            provider,
-            modelId,
-            finishReason: part.finishReason,
-            totalUsage: part.totalUsage,
-            streamStart,
-            firstOutputAt,
-          }),
-        };
-      }
-      return undefined;
-    },
-  });
+  return { streamChat };
 }
+
+export type ChatService = ReturnType<typeof createChatService>;
 
 // Last user message in the array; used for logging and persistence.
 function findLastUserMessage(messages: UIMessage[]): UIMessage | undefined {
@@ -246,8 +266,8 @@ function buildStreamMessageStats(
 }
 
 // Normalize the SDK's usage object into our stats.usage shape. Used both from
-// `onEnd` (persistence) and `buildStreamMessageStats` (live streaming), so
-// the two paths never drift in what they record.
+// `onEnd` (persistence) and `buildStreamMessageStats` (live streaming), so the
+// two paths never drift in what they record.
 function mapUsageToStats(
   usage: UsageLike | undefined,
 ): MessageStats["usage"] {
