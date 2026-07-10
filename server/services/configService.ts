@@ -21,11 +21,16 @@ export function createConfigService(repo: ConfigRepository) {
       return repo.getConfig();
     },
 
+    // ── Bulk import ───────────────────────────────────────────────────
+
+    /** Replace the entire config with a validated payload in one transaction. */
+    async importConfig(config: Config): Promise<void> {
+      return repo.importConfig(config);
+    },
+
     // ── Providers ───────────────────────────────────────────────────────
 
-    async createProvider(
-      input: Omit<Provider, "id">,
-    ): Promise<Provider> {
+    async createProvider(input: Omit<Provider, "id">): Promise<Provider> {
       return repo.createProvider(input);
     },
 
@@ -54,16 +59,11 @@ export function createConfigService(repo: ConfigRepository) {
 
     // ── Assistants ───────────────────────────────────────────────────────
 
-    async createAssistant(
-      input: Omit<Assistant, "id">,
-    ): Promise<Assistant> {
+    async createAssistant(input: Omit<Assistant, "id">): Promise<Assistant> {
       return repo.createAssistant(input);
     },
 
-    async updateAssistant(
-      id: string,
-      input: Assistant,
-    ): Promise<void> {
+    async updateAssistant(id: string, input: Assistant): Promise<void> {
       await ensureAssistantExists(id);
       return repo.updateAssistant(id, input);
     },
@@ -125,9 +125,7 @@ export function createConfigService(repo: ConfigRepository) {
     // write mid-transaction. Previously this happened here, after the write,
     // in its own loop of separate updatePreset transactions.
 
-    async createPreset(
-      input: Omit<Preset, "id">,
-    ): Promise<Preset> {
+    async createPreset(input: Omit<Preset, "id">): Promise<Preset> {
       return repo.createPreset(input);
     },
 

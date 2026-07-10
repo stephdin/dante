@@ -1,9 +1,16 @@
+import { useRef, useState } from "react";
 import {
   ActionIcon,
+  Alert,
   AppShell,
   Burger,
+  Button,
   Group,
+  Loader,
   Menu,
+  Modal,
+  Stack,
+  Text,
   Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -16,13 +23,20 @@ import {
 } from "react-router-dom";
 import {
   IconClipboard,
+  IconDatabaseImport,
   IconDotsVertical,
   IconDownload,
+  IconFileDownload,
   IconFlame,
   IconPencil,
   IconStar,
 } from "@tabler/icons-react";
+import { ZodError } from "zod";
 
+import { apiPost } from "./api/client.ts";
+import { invalidateConfig, useConfig } from "./api/queries.ts";
+import { configSchema } from "@shared/schemas/config.ts";
+import type { Config } from "@shared/types.ts";
 import { ChatNavbar } from "./components/ChatNavbar.tsx";
 import AssistantFormPage from "./pages/settings/AssistantFormPage.tsx";
 import McpFormPage from "./pages/settings/McpFormPage.tsx";
@@ -45,9 +59,92 @@ function getPageTitle(pathname: string): string {
 function App() {
   const [navOpened, { toggle: toggleNav, close: closeNav }] = useDisclosure();
   const { pathname } = useLocation();
-  // The conversation actions menu only makes sense on an open conversation.
+  // Show the actions menu on conversation and settings pages.
   // Keep its slot reserved (visibility hidden) so the title stays centered.
-  const showConvMenu = pathname.startsWith("/conversation/");
+  const showMenu =
+    pathname.startsWith("/conversation/") || pathname.startsWith("/settings");
+  const isConv = pathname.startsWith("/conversation/");
+  const isSettings = pathname.startsWith("/settings");
+  useConfig(); // prime the cache for settings pages
+
+  // ── Export ───────────────────────────────────────────────────────────
+
+  function handleExportConfig() {
+    const a = document.createElement("a");
+    a.href = "/api/config/export";
+    a.download = `dante-config-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  // ── Import ───────────────────────────────────────────────────────────
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSummary, setImportSummary] = useState("");
+  const [importConfigData, setImportConfigData] = useState<Config | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+
+  function handleImportClick() {
+    fileInputRef.current?.click();
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportError(null);
+    setImportConfigData(null);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const json = JSON.parse(reader.result as string);
+        const parsed = configSchema.parse(json);
+        const p = parsed.providers.length;
+        const a = parsed.assistants.length;
+        const m = parsed.mcps.length;
+        const pr = parsed.presets.length;
+        setImportSummary(
+          `${p} Provider, ${a} Assistenten, ${m} MCPs, ${pr} Presets`,
+        );
+        setImportConfigData(parsed);
+      } catch (err) {
+        if (err instanceof ZodError) {
+          setImportError(
+            err.issues
+              .map((i) => `• ${i.path.join(".")}: ${i.message}`)
+              .join("\n"),
+          );
+        } else {
+          setImportError("Keine gültige JSON-Datei.");
+        }
+      }
+      setImportModalOpen(true);
+    };
+    reader.readAsText(file);
+
+    // Reset so the same file can be re-selected.
+    e.target.value = "";
+  }
+
+  async function handleImportConfirm() {
+    if (!importConfigData) return;
+    setImportLoading(true);
+    try {
+      await apiPost("/config/import", importConfigData);
+      invalidateConfig();
+      setImportModalOpen(false);
+    } catch (err) {
+      setImportError(
+        err instanceof Error ? err.message : "Import fehlgeschlagen.",
+      );
+    } finally {
+      setImportLoading(false);
+    }
+  }
 
   return (
     <AppShell padding={0} header={{ height: 48 }}>
@@ -63,28 +160,47 @@ function App() {
                 variant="subtle"
                 color="gray"
                 size="md"
-                style={{ visibility: showConvMenu ? undefined : "hidden" }}
+                style={{ visibility: showMenu ? undefined : "hidden" }}
               >
                 <IconDotsVertical size={16} />
               </ActionIcon>
             </Menu.Target>
             <Menu.Dropdown>
-              <Menu.Item leftSection={<IconPencil size={14} />}>
-                Unterhaltung umbenennen
-              </Menu.Item>
-              <Menu.Item leftSection={<IconClipboard size={14} />}>
-                Unterhaltung kopieren
-              </Menu.Item>
-              <Menu.Item leftSection={<IconStar size={14} />}>
-                Markierte Nachrichten anzeigen
-              </Menu.Item>
-              <Menu.Item leftSection={<IconDownload size={14} />}>
-                Exportieren
-              </Menu.Item>
-              <Menu.Divider />
-              <Menu.Item leftSection={<IconFlame size={14} />} color="red">
-                Chat löschen
-              </Menu.Item>
+              {isConv ? (
+                <>
+                  <Menu.Item leftSection={<IconPencil size={14} />}>
+                    Unterhaltung umbenennen
+                  </Menu.Item>
+                  <Menu.Item leftSection={<IconClipboard size={14} />}>
+                    Unterhaltung kopieren
+                  </Menu.Item>
+                  <Menu.Item leftSection={<IconStar size={14} />}>
+                    Markierte Nachrichten anzeigen
+                  </Menu.Item>
+                  <Menu.Item leftSection={<IconDownload size={14} />}>
+                    Exportieren
+                  </Menu.Item>
+                  <Menu.Divider />
+                  <Menu.Item leftSection={<IconFlame size={14} />} color="red">
+                    Chat löschen
+                  </Menu.Item>
+                </>
+              ) : isSettings ? (
+                <>
+                  <Menu.Item
+                    leftSection={<IconDatabaseImport size={14} />}
+                    onClick={handleImportClick}
+                  >
+                    Konfiguration importieren
+                  </Menu.Item>
+                  <Menu.Item
+                    leftSection={<IconFileDownload size={14} />}
+                    onClick={handleExportConfig}
+                  >
+                    Konfiguration exportieren
+                  </Menu.Item>
+                </>
+              ) : null}
             </Menu.Dropdown>
           </Menu>
         </Group>
@@ -100,10 +216,22 @@ function App() {
           <Route path="/chats" element={<ChatOverviewPage />} />
           <Route path="/conversation/:id" element={<ConversationPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/settings/providers/new" element={<ProviderFormPage />} />
-          <Route path="/settings/providers/:id" element={<ProviderFormPage />} />
-          <Route path="/settings/assistants/new" element={<AssistantFormPage />} />
-          <Route path="/settings/assistants/:id" element={<AssistantFormPage />} />
+          <Route
+            path="/settings/providers/new"
+            element={<ProviderFormPage />}
+          />
+          <Route
+            path="/settings/providers/:id"
+            element={<ProviderFormPage />}
+          />
+          <Route
+            path="/settings/assistants/new"
+            element={<AssistantFormPage />}
+          />
+          <Route
+            path="/settings/assistants/:id"
+            element={<AssistantFormPage />}
+          />
           <Route path="/settings/mcps/new" element={<McpFormPage />} />
           <Route path="/settings/mcps/:id" element={<McpFormPage />} />
           <Route path="/settings/presets/new" element={<PresetFormPage />} />
@@ -111,6 +239,71 @@ function App() {
           <Route path="*" element={<Navigate to="/new" replace />} />
         </Routes>
       </AppShell.Main>
+
+      {/* Hidden file input for configuration import */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        style={{ display: "none" }}
+        onChange={handleFileChange}
+      />
+
+      <Modal
+        opened={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        title="Konfiguration importieren"
+        size="lg"
+      >
+        <Stack gap="md">
+          {importLoading ? (
+            <Stack align="center" py="md">
+              <Loader />
+              <Text size="sm" c="dimmed">
+                Konfiguration wird importiert…
+              </Text>
+            </Stack>
+          ) : importError ? (
+            <>
+              <Alert color="red" title="Ungültige Konfiguration">
+                <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+                  {importError}
+                </Text>
+              </Alert>
+              <Group justify="flex-end">
+                <Button
+                  variant="default"
+                  onClick={() => setImportModalOpen(false)}
+                >
+                  Abbrechen
+                </Button>
+              </Group>
+            </>
+          ) : importConfigData ? (
+            <>
+              <Text size="sm">Die importierte Konfiguration enthält:</Text>
+              <Text size="sm" fw={500}>
+                {importSummary}
+              </Text>
+              <Alert color="yellow" title="Achtung">
+                Die gesamte aktuelle Konfiguration wird überschrieben. Dieser
+                Vorgang kann nicht rückgängig gemacht werden.
+              </Alert>
+              <Group justify="flex-end">
+                <Button
+                  variant="default"
+                  onClick={() => setImportModalOpen(false)}
+                >
+                  Abbrechen
+                </Button>
+                <Button color="red" onClick={handleImportConfirm}>
+                  Importieren
+                </Button>
+              </Group>
+            </>
+          ) : null}
+        </Stack>
+      </Modal>
     </AppShell>
   );
 }

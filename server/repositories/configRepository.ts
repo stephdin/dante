@@ -13,16 +13,23 @@ import type {
 // live here.
 export interface ConfigRepository {
   getConfig(): Promise<Config>;
+  /** Replace the entire config in a single transaction. */
+  importConfig(config: Config): Promise<void>;
   createProvider(input: Omit<Provider, "id">): Promise<Provider>;
   updateProvider(id: string, input: Provider): Promise<void>;
   deleteProvider(id: string): Promise<void>;
   createAssistant(input: Omit<Assistant, "id">): Promise<Assistant>;
   updateAssistant(id: string, input: Assistant): Promise<void>;
   deleteAssistant(id: string): Promise<void>;
-  createMcp(input: Omit<McpConnection, "id" | "status">): Promise<McpConnection>;
+  createMcp(
+    input: Omit<McpConnection, "id" | "status">,
+  ): Promise<McpConnection>;
   // status is server-managed (created as "disconnected", mutated only by the
   // future MCP connection lifecycle), so update accepts name/transport only.
-  updateMcp(id: string, input: Omit<McpConnection, "id" | "status">): Promise<void>;
+  updateMcp(
+    id: string,
+    input: Omit<McpConnection, "id" | "status">,
+  ): Promise<void>;
   deleteMcp(id: string): Promise<void>;
   createPreset(input: Omit<Preset, "id">): Promise<Preset>;
   updatePreset(id: string, input: Preset): Promise<void>;

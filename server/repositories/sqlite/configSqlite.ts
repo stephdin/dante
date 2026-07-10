@@ -140,9 +140,7 @@ function assembleConfig(rows: {
   };
 }
 
-export function createSqliteConfigRepository(
-  db: Database,
-): ConfigRepository {
+export function createSqliteConfigRepository(db: Database): ConfigRepository {
   // In-memory cache of the assembled Config. Invalidated by every write
   // method below. The chat hot path calls resolveChatConfig → getConfig on
   // every /api/chat request, so caching turns 6 SELECT * into a pointer
@@ -158,14 +156,95 @@ export function createSqliteConfigRepository(
     // the round-trips after the first read.
     async getConfig() {
       if (cached) return cached;
-      const providers = db.prepare("SELECT * FROM providers").all<ProviderRow>();
+      const providers = db
+        .prepare("SELECT * FROM providers")
+        .all<ProviderRow>();
       const models = db.prepare("SELECT * FROM models").all<ModelRow>();
-      const assistants = db.prepare("SELECT * FROM assistants").all<AssistantRow>();
+      const assistants = db
+        .prepare("SELECT * FROM assistants")
+        .all<AssistantRow>();
       const mcps = db.prepare("SELECT * FROM mcp_connections").all<McpRow>();
       const presets = db.prepare("SELECT * FROM presets").all<PresetRow>();
-      const presetMcps = db.prepare("SELECT * FROM preset_mcps").all<PresetMcpRow>();
-      cached = assembleConfig({ providers, models, assistants, mcps, presets, presetMcps });
+      const presetMcps = db
+        .prepare("SELECT * FROM preset_mcps")
+        .all<PresetMcpRow>();
+      cached = assembleConfig({
+        providers,
+        models,
+        assistants,
+        mcps,
+        presets,
+        presetMcps,
+      });
       return cached;
+    },
+
+    // ── Bulk import ────────────────────────────────────────────────────
+    // Replaces the entire config in a single transaction: clear all rows in
+    // FK-safe order, then insert the incoming payload. The incoming config
+    // is assumed to be already validated by the service layer.
+    async importConfig(config) {
+      const now = new Date().toISOString();
+      db.transaction(() => {
+        // Delete in FK-safe order (leaf tables first).
+        db.exec("DELETE FROM preset_mcps");
+        db.exec("DELETE FROM models");
+        db.exec("DELETE FROM presets");
+        db.exec("DELETE FROM providers");
+        db.exec("DELETE FROM assistants");
+        db.exec("DELETE FROM mcp_connections");
+
+        // Insert in dependency order (top-level entities first).
+        const insertProvider = db.prepare(
+          "INSERT INTO providers (id, name, type, url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+        );
+        const insertModel = db.prepare(
+          "INSERT INTO models (id, provider_id, name) VALUES (?, ?, ?)",
+        );
+        for (const p of config.providers) {
+          insertProvider.run(p.id, p.name, p.type, p.url, now, now);
+          for (const m of p.models) {
+            insertModel.run(m.id, p.id, m.name);
+          }
+        }
+
+        const insertAssistant = db.prepare(
+          "INSERT INTO assistants (id, name, prompt, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+        );
+        for (const a of config.assistants) {
+          insertAssistant.run(a.id, a.name, a.prompt, now, now);
+        }
+
+        const insertMcp = db.prepare(
+          "INSERT INTO mcp_connections (id, name, transport, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+        );
+        for (const mcp of config.mcps) {
+          insertMcp.run(mcp.id, mcp.name, mcp.transport, mcp.status, now, now);
+        }
+
+        const insertPreset = db.prepare(
+          "INSERT INTO presets (id, name, icon_id, model_id, assistant_id, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        );
+        const insertPresetMcp = db.prepare(
+          "INSERT INTO preset_mcps (preset_id, mcp_id) VALUES (?, ?)",
+        );
+        for (const preset of config.presets) {
+          insertPreset.run(
+            preset.id,
+            preset.name,
+            preset.iconId,
+            preset.modelId,
+            preset.assistantId,
+            preset.default ? 1 : 0,
+            now,
+            now,
+          );
+          for (const mcpId of preset.mcpIds) {
+            insertPresetMcp.run(preset.id, mcpId);
+          }
+        }
+      })();
+      cached = undefined;
     },
 
     // ── Providers ──────────────────────────────────────────────────────
@@ -231,7 +310,9 @@ export function createSqliteConfigRepository(
     },
 
     async updateAssistant(id, input) {
-      const exists = db.prepare("SELECT 1 FROM assistants WHERE id = ?").get(id);
+      const exists = db
+        .prepare("SELECT 1 FROM assistants WHERE id = ?")
+        .get(id);
       if (!exists) throw new Error("Assistant not found");
       const now = new Date().toISOString();
       db.prepare(
@@ -270,7 +351,9 @@ export function createSqliteConfigRepository(
     },
 
     async updateMcp(id, input) {
-      const exists = db.prepare("SELECT 1 FROM mcp_connections WHERE id = ?").get(id);
+      const exists = db
+        .prepare("SELECT 1 FROM mcp_connections WHERE id = ?")
+        .get(id);
       if (!exists) throw new Error("MCP not found");
       const now = new Date().toISOString();
       // status is intentionally not written here — it's server-managed
@@ -284,7 +367,9 @@ export function createSqliteConfigRepository(
 
     async deleteMcp(id) {
       // ON DELETE CASCADE on preset_mcps.mcp_id removes the junction rows.
-      const changes = db.prepare("DELETE FROM mcp_connections WHERE id = ?").run(id);
+      const changes = db
+        .prepare("DELETE FROM mcp_connections WHERE id = ?")
+        .run(id);
       if (changes === 0) throw new Error("MCP not found");
       cached = undefined;
     },

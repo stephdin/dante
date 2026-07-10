@@ -3,10 +3,24 @@ import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { ZodError } from "zod";
 
-import { createAssistant, deleteAssistant, updateAssistant } from "./handlers/config/assistants.ts";
+import {
+  createAssistant,
+  deleteAssistant,
+  updateAssistant,
+} from "./handlers/config/assistants.ts";
+import { exportConfig } from "./handlers/config/exportConfig.ts";
+import { importConfig } from "./handlers/config/importConfig.ts";
 import { createMcp, deleteMcp, updateMcp } from "./handlers/config/mcps.ts";
-import { createPreset, deletePreset, updatePreset } from "./handlers/config/presets.ts";
-import { createProvider, deleteProvider, updateProvider } from "./handlers/config/providers.ts";
+import {
+  createPreset,
+  deletePreset,
+  updatePreset,
+} from "./handlers/config/presets.ts";
+import {
+  createProvider,
+  deleteProvider,
+  updateProvider,
+} from "./handlers/config/providers.ts";
 import { createConversation } from "./handlers/createConversation.ts";
 import { getConfig } from "./handlers/getConfig.ts";
 import { getConversation } from "./handlers/getConversation.ts";
@@ -67,7 +81,11 @@ const app = new Hono();
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   try {
     Deno.addSignalListener(signal, () => {
-      try { db.close(); } catch { /* already closed */ }
+      try {
+        db.close();
+      } catch {
+        /* already closed */
+      }
       Deno.exit(0);
     });
   } catch {
@@ -92,6 +110,8 @@ app.get("/api/health", getHealth);
 
 // --- Config ---
 app.get("/api/config", getConfig(configService));
+app.get("/api/config/export", exportConfig(configService));
+app.post("/api/config/import", importConfig(configService));
 
 // --- Config mutations ---
 // Providers
