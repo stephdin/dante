@@ -1,20 +1,12 @@
 import type { Context } from "hono";
 import { getDb } from "../db/db.ts";
-import type {
-  Conversation,
-  ConversationSummary,
-  Message,
-  MessagePart,
-} from "../../shared/types.ts";
+import { cancelJobById } from "./jobs.ts";
+import { notFound, badRequest } from "./_http.ts";
+import type { ConversationRow, MessageRow } from "../db/rows.ts";
+import { rowToMessage } from "../db/rows.ts";
+import type { Conversation, ConversationSummary } from "../../shared/types.ts";
 
-// ── Row types ────────────────────────────────────────────────────────────────
-
-type ConversationRow = {
-  id: string;
-  label: string;
-  created_at: string;
-  updated_at: string;
-};
+// ── Row types local to this handler ──────────────────────────────────────────
 
 type SummaryRow = {
   id: string;
@@ -23,24 +15,7 @@ type SummaryRow = {
   last_parts: string | null;
 };
 
-type MessageRow = {
-  id: string;
-  conversation_id: string;
-  role: "user" | "assistant";
-  parts: string;
-  stats: string | null;
-  status: "generating" | "complete" | "error" | "cancelled";
-  created_at: string;
-};
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function notFound(c: Context, resource: string) {
-  return c.json(
-    { error: { code: "not_found", message: `${resource} not found` } },
-    404,
-  );
-}
 
 function now(): string {
   return new Date().toISOString();
@@ -60,18 +35,6 @@ function previewFromParts(partsJson: string | null): string {
   } catch {
     return "";
   }
-}
-
-function rowToMessage(row: MessageRow): Message {
-  return {
-    id: row.id,
-    conversationId: row.conversation_id,
-    role: row.role,
-    parts: JSON.parse(row.parts) as MessagePart[],
-    stats: row.stats ? JSON.parse(row.stats) : undefined,
-    status: row.status,
-    createdAt: row.created_at,
-  };
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
@@ -125,82 +88,86 @@ export function getConversation(c: Context) {
   return c.json(conversation);
 }
 
-export function createConversation(c: Context) {
-  return c.req.json().then((body: { label?: string }) => {
-    const id = crypto.randomUUID();
-    const timestamp = now();
-    const label = (body.label ?? "").trim() || "New conversation";
+export async function createConversation(c: Context) {
+  const body = await c.req.json<{ label?: string }>();
+  const id = crypto.randomUUID();
+  const timestamp = now();
+  const label = (body.label ?? "").trim() || "New conversation";
 
-    getDb()
-      .prepare(
-        "INSERT INTO conversations (id, label, created_at, updated_at) VALUES (?, ?, ?, ?)",
-      )
-      .run(id, label, timestamp, timestamp);
+  getDb()
+    .prepare(
+      "INSERT INTO conversations (id, label, created_at, updated_at) VALUES (?, ?, ?, ?)",
+    )
+    .run(id, label, timestamp, timestamp);
 
-    const conversation: Conversation = {
-      id,
-      label,
-      messages: [],
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    };
+  const conversation: Conversation = {
+    id,
+    label,
+    messages: [],
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
 
-    return c.json(conversation, 201);
-  });
+  return c.json(conversation, 201);
 }
 
-export function updateConversation(c: Context) {
-  return c.req.json().then((body: { label?: string }) => {
-    const id = c.req.param("id");
+export async function updateConversation(c: Context) {
+  const body = await c.req.json<{ label?: string }>();
+  const id = c.req.param("id");
 
-    const existing = getDb()
-      .prepare(
-        "SELECT id, label, created_at, updated_at FROM conversations WHERE id = ?",
-      )
-      .get<ConversationRow>(id);
-    if (!existing) return notFound(c, "conversation");
+  const existing = getDb()
+    .prepare(
+      "SELECT id, label, created_at, updated_at FROM conversations WHERE id = ?",
+    )
+    .get<ConversationRow>(id);
+  if (!existing) return notFound(c, "conversation");
 
-    const label = (body.label ?? "").trim();
-    if (!label) {
-      return c.json(
-        { error: { code: "bad_request", message: "label is required" } },
-        400,
-      );
-    }
+  const label = (body.label ?? "").trim();
+  if (!label) return badRequest(c, "label is required");
 
-    const timestamp = now();
-    getDb()
-      .prepare(
-        "UPDATE conversations SET label = ?, updated_at = ? WHERE id = ?",
-      )
-      .run(label, timestamp, id);
+  const timestamp = now();
+  getDb()
+    .prepare("UPDATE conversations SET label = ?, updated_at = ? WHERE id = ?")
+    .run(label, timestamp, id);
 
-    const msgs = getDb()
-      .prepare(
-        "SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC",
-      )
-      .all<MessageRow>(id);
+  const msgs = getDb()
+    .prepare(
+      "SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC",
+    )
+    .all<MessageRow>(id);
 
-    const conversation: Conversation = {
-      id: existing.id,
-      label,
-      messages: msgs.map(rowToMessage),
-      createdAt: existing.created_at,
-      updatedAt: timestamp,
-    };
+  const conversation: Conversation = {
+    id: existing.id,
+    label,
+    messages: msgs.map(rowToMessage),
+    createdAt: existing.created_at,
+    updatedAt: timestamp,
+  };
 
-    return c.json(conversation);
-  });
+  return c.json(conversation);
 }
 
 export function deleteConversation(c: Context) {
   const id = c.req.param("id");
+  const db = getDb();
 
-  const existing = getDb()
+  const existing = db
     .prepare("SELECT 1 FROM conversations WHERE id = ?")
     .get(id);
   if (!existing) return notFound(c, "conversation");
 
-  getDb().prepare("DELETE FROM conversations WHERE id = ?").run(id);
+  // Cancel any in-flight jobs before the cascade delete removes their rows.
+  // Without this, the worker keeps streaming into deleted rows.
+  const activeJobs = db
+    .prepare(
+      `SELECT id FROM generation_jobs
+       WHERE conversation_id = ? AND status IN ('pending', 'running', 'failed')`,
+    )
+    .all<{ id: string }>(id);
+  for (const job of activeJobs) {
+    cancelJobById(job.id);
+  }
+
+  db.prepare("DELETE FROM conversations WHERE id = ?").run(id);
   return c.json(null);
 }

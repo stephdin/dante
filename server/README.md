@@ -1,3 +1,6 @@
+Use the following .env variable:
+
+```sh
 # ── Dante Server — Environment Variables ─────────────────────────────────────
 #
 # Copy this file to .env and fill in your values:
@@ -8,7 +11,6 @@ PORT=3000
 
 # API token for HTTP Bearer auth and WebSocket query auth.
 # All /api/* routes (except health) require this token.
-# If not set, auth is disabled (dev convenience — never in production).
 DANTE_API_TOKEN=1337
 
 # SQLite database path (default: dante.db in the server directory).
@@ -49,3 +51,4 @@ MODEL_PROVIDER_API_KEY=
 #   type:     openai-compatible  (or "anthropic" for MiniMax/Qwen models)
 #   url:      https://opencode.ai/zen/go/v1
 #   models:   opencode-go/deepseek-v4-flash, opencode-go/deepseek-v4-pro, …
+```

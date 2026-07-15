@@ -1,10 +1,10 @@
 // Thin fetch wrapper for the backend API. In dev, Vite proxies /api/* to the
 // Deno server (see vite.config.ts), so requests stay same-origin.
 
-const DANTE_API_TOKEN = "1337";
+import { getApiToken } from "./token.ts";
 
 function authHeaders(): Record<string, string> {
-  return { Authorization: `Bearer ${DANTE_API_TOKEN}` };
+  return { Authorization: `Bearer ${getApiToken()}` };
 }
 
 function jsonHeaders(): Record<string, string> {

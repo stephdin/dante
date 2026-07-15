@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import { subscribe, unsubscribe, unsubscribeAll } from "./broadcaster.ts";
-import { getDb } from "../db/db.ts";
+import { cancelJobById } from "../handlers/jobs.ts";
 
 /**
  * GET /api/events?token=<...>
@@ -49,26 +49,7 @@ export function events(c: Context) {
         break;
       }
       case "cancel": {
-        if (!msg.jobId) break;
-        const db = getDb();
-        const job = db
-          .prepare("SELECT id, status FROM generation_jobs WHERE id = ?")
-          .get<{ id: string; status: string }>(msg.jobId);
-        if (!job) break;
-        if (
-          job.status !== "pending" &&
-          job.status !== "running" &&
-          job.status !== "failed"
-        )
-          break;
-
-        const now = new Date().toISOString();
-        db.prepare(
-          "UPDATE generation_jobs SET status = 'cancelled', updated_at = ? WHERE id = ?",
-        ).run(now, msg.jobId);
-        db.prepare(
-          "UPDATE messages SET status = 'cancelled' WHERE id IN (SELECT message_id FROM generation_jobs WHERE id = ?)",
-        ).run(msg.jobId);
+        if (msg.jobId) cancelJobById(msg.jobId);
         break;
       }
     }

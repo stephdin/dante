@@ -1,4 +1,4 @@
-import { streamText } from "ai";
+import { streamText, type LanguageModel } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import type { Message, MessagePart } from "../../shared/types.ts";
@@ -10,6 +10,8 @@ export type StreamResult = {
     inputTokens?: number;
     outputTokens?: number;
     totalTokens?: number;
+    reasoningTokens?: number;
+    textTokens?: number;
   }>;
 };
 
@@ -24,20 +26,22 @@ export function streamChat(params: {
   systemPrompt?: string;
   providerType: "openai-compatible" | "anthropic";
 }): StreamResult {
-  const provider =
-    params.providerType === "anthropic"
-      ? createAnthropic({ apiKey: params.apiKey, baseURL: params.baseUrl })
-      : createOpenAICompatible({
-          apiKey: params.apiKey,
-          baseURL: params.baseUrl,
-          name: "dante",
-        });
-
-  // Both providers can be called directly: provider(modelId) returns a language model.
-  // deno-lint-ignore no-explicit-any
-  const model =
-    (provider as any)(params.modelId) ??
-    (provider as any).chatModel?.(params.modelId);
+  // Both factories return callable providers: provider(modelId) → LanguageModel.
+  // @ai-sdk/anthropic@1 produces LanguageModelV1; ai@7 expects V2+. Runtime-
+  // compatible — cast bridges the version gap until the SDK catches up.
+  let model: LanguageModel;
+  if (params.providerType === "anthropic") {
+    model = createAnthropic({
+      apiKey: params.apiKey,
+      baseURL: params.baseUrl,
+    })(params.modelId) as unknown as LanguageModel;
+  } else {
+    model = createOpenAICompatible({
+      apiKey: params.apiKey,
+      baseURL: params.baseUrl,
+      name: "dante",
+    })(params.modelId) as unknown as LanguageModel;
+  }
 
   const result = streamText({
     model,
@@ -58,6 +62,8 @@ export function streamChat(params: {
       inputTokens: u.inputTokens,
       outputTokens: u.outputTokens,
       totalTokens: u.totalTokens,
+      reasoningTokens: u.outputTokenDetails?.reasoningTokens,
+      textTokens: u.outputTokenDetails?.textTokens,
     })),
   };
 }
@@ -66,17 +72,10 @@ async function* streamParts(
   result: ReturnType<typeof streamText>,
 ): AsyncGenerator<MessagePart> {
   for await (const chunk of result.fullStream) {
-    const c = chunk as unknown as Record<string, unknown>;
-    const text =
-      (c.textDelta as string) ??
-      (c.text as string) ??
-      (c.content as string) ??
-      "";
-
-    if (chunk.type === "text-delta" || chunk.type === "text") {
-      if (text) yield { type: "text", text };
-    } else if (chunk.type === "reasoning-delta" || chunk.type === "reasoning") {
-      if (text) yield { type: "reasoning", text };
+    if (chunk.type === "text-delta") {
+      if (chunk.text) yield { type: "text", text: chunk.text };
+    } else if (chunk.type === "reasoning-delta") {
+      if (chunk.text) yield { type: "reasoning", text: chunk.text };
     }
   }
 }

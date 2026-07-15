@@ -7,13 +7,15 @@ import type {
   ConversationSummary,
 } from "@shared/types.ts";
 
-// Cached config so that navigating between /settings and a settings subpage
-// (which unmounts/remounts SettingsPage) doesn't re-trigger the Loader and
-// lose the scroll position that react-router's ScrollRestoration tries to
-// restore. The backend exposes no config mutations yet, so the cache never
-// needs invalidation; if/when POST/PUT handlers are added, expose an
-// invalidateConfig() and call it from the mutation handlers.
+// ── Config cache + subscription ──────────────────────────────────────────────
+//
+// useConfig subscribes to a module-level cache. invalidateConfig refetches from
+// the server and pushes the result to every active subscriber, so mutations
+// from anywhere (form pages, import) update all mounted SettingsPage instances
+// without requiring a remount.
+
 let configCache: Config | null = null;
+const configListeners = new Set<(config: Config) => void>();
 
 export function useConfig() {
   const [data, setData] = useState<Config | null>(configCache);
@@ -21,35 +23,63 @@ export function useConfig() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (configCache !== null) return;
     let active = true;
-    setLoading(true);
-    apiGet<Config>("/config")
-      .then((result) => {
-        if (active) {
-          configCache = result;
-          setData(result);
-          setError(null);
-        }
-      })
-      .catch((err: unknown) => {
-        if (active) {
-          setError(err instanceof Error ? err : new Error(String(err)));
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+
+    // Subscribe first so invalidateConfig refetches reach us even if the
+    // initial fetch is still in flight.
+    const listener = (config: Config) => {
+      if (active) {
+        setData(config);
+        setError(null);
+        setLoading(false);
+      }
+    };
+    configListeners.add(listener);
+
+    // Initial fetch if cache is empty
+    if (configCache === null) {
+      setLoading(true);
+      apiGet<Config>("/config")
+        .then((result) => {
+          if (active) {
+            configCache = result;
+            setData(result);
+            setError(null);
+          }
+        })
+        .catch((err: unknown) => {
+          if (active) {
+            setError(err instanceof Error ? err : new Error(String(err)));
+          }
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+    }
+
     return () => {
       active = false;
+      configListeners.delete(listener);
     };
   }, []);
 
   return { data, loading, error };
 }
 
+/**
+ * Clear the cache and refetch. Notifies all active useConfig subscribers with
+ * the fresh config so they update without remounting.
+ */
 export function invalidateConfig() {
   configCache = null;
+  apiGet<Config>("/config")
+    .then((config) => {
+      configCache = config;
+      for (const listener of configListeners) listener(config);
+    })
+    .catch(() => {
+      // Leave error handling to individual useConfig instances
+    });
 }
 
 /** Save the full config and invalidate the local cache so useConfig refetches. */
@@ -57,6 +87,8 @@ export async function saveConfig(config: Config): Promise<void> {
   await apiPut("/config", config);
   invalidateConfig();
 }
+
+// ── Conversations ────────────────────────────────────────────────────────────
 
 export function useConversations() {
   const [data, setData] = useState<ConversationSummary[] | null>(null);
@@ -87,6 +119,11 @@ export function useConversations() {
   }, []);
 
   return { data, loading, error };
+}
+
+/** Fetch a conversation by id. Used to pull final stats after chat.done. */
+export async function fetchConversation(id: string): Promise<Conversation> {
+  return apiGet<Conversation>(`/conversations/${id}`);
 }
 
 export function useConversation(id: string | undefined) {

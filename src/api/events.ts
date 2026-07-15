@@ -7,9 +7,10 @@
  * fire on every matching event.
  */
 
+import { getApiToken } from "./token.ts";
+
 type EventHandler = (data: Record<string, unknown>) => void;
 
-const DANTE_API_TOKEN = "1337";
 const WS_BASE = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`;
 
 let ws: WebSocket | null = null;
@@ -27,11 +28,10 @@ function emit(type: string, data: Record<string, unknown>) {
 function connect() {
   if (ws && ws.readyState === WebSocket.OPEN) return;
 
-  const url = `${WS_BASE}/api/events?token=${DANTE_API_TOKEN}`;
+  const url = `${WS_BASE}/api/events?token=${getApiToken()}`;
   ws = new WebSocket(url);
 
   ws.onopen = () => {
-    console.log("[events] ws connected, re-subscribing", [...activeSubs]);
     emit("reconnect", {});
     // Re-subscribe all active conversations on reconnect
     for (const id of activeSubs) {
@@ -46,7 +46,6 @@ function connect() {
         unknown
       >;
       emit(msg.type, msg);
-      console.log(`[events] received: ${msg.type}`, msg);
     } catch {
       // ignore malformed
     }

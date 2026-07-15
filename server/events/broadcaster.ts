@@ -33,15 +33,7 @@ export function broadcast(
   event: Record<string, unknown>,
 ) {
   const sockets = subs.get(conversationId);
-  if (!sockets || sockets.size === 0) {
-    console.log(
-      `broadcast: no subscribers for ${conversationId} (event: ${event.type})`,
-    );
-    return;
-  }
-  console.log(
-    `broadcast: sending ${event.type} to ${sockets.size} socket(s) for ${conversationId}`,
-  );
+  if (!sockets || sockets.size === 0) return;
   const msg = JSON.stringify(event);
   for (const ws of sockets) {
     try {

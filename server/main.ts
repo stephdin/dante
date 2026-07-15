@@ -11,7 +11,7 @@ import { start as startWorker } from "./worker/runner.ts";
 import { events } from "./events/ws.ts";
 
 // ── Database ──────────────────────────────────────────────────────────────────
-const db = getDb();
+getDb();
 console.log("db: sqlite ready");
 
 // ── Worker ────────────────────────────────────────────────────────────────────

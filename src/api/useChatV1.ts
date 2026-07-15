@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useConversation } from "./queries.ts";
+import { useConversation, fetchConversation } from "./queries.ts";
 import * as events from "./events.ts";
+import { getApiToken } from "./token.ts";
 import type { Message, MessagePart, MessageStats } from "../../shared/types.ts";
 
 // ── Rendering shape ─────────────────────────────────────────────────────────
@@ -86,7 +87,6 @@ export function useChatV1(conversationId: string) {
 
     const unsubs = [
       events.on("chat.user-message", (data) => {
-        console.log("[chat] chat.user-message", data);
         const parts = data.parts as MessagePart[] | undefined;
         if (!parts) return;
         setMessages((prev) => {
@@ -118,40 +118,100 @@ export function useChatV1(conversationId: string) {
       }),
 
       events.on("chat.token", (data) => {
-        console.log("[chat] chat.token", data);
         const parts = data.parts as MessagePart[] | undefined;
         if (!parts) return;
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === data.messageId
-              ? {
-                  ...m,
-                  text: partsToText(parts),
-                  reasoning: partsToReasoning(parts) || undefined,
-                  waiting: false,
-                  reasoningStreaming: parts.some((p) => p.type === "reasoning"),
-                }
-              : m,
-          ),
-        );
-        if (!streaming) setStreaming(true);
+        // Reasoning is still streaming while the last part is reasoning.
+        // Once a text part arrives, reasoning is done — even though the
+        // reasoning parts stay in the cumulative array.
+        const lastPart = parts[parts.length - 1];
+        const isReasoning = lastPart?.type === "reasoning";
+        setMessages((prev) => {
+          const exists = prev.some((m) => m.id === data.messageId);
+          if (exists) {
+            return prev.map((m) =>
+              m.id === data.messageId
+                ? {
+                    ...m,
+                    text: partsToText(parts),
+                    reasoning: partsToReasoning(parts) || undefined,
+                    waiting: false,
+                    reasoningStreaming: isReasoning,
+                  }
+                : m,
+            );
+          }
+          // The assistant message wasn't in local state yet — another tab
+          // sent the message and we missed the placeholder. Create it now so
+          // subsequent tokens and chat.done can update it.
+          return [
+            ...prev,
+            {
+              id: data.messageId as string,
+              role: "assistant",
+              text: partsToText(parts),
+              reasoning: partsToReasoning(parts) || undefined,
+              createdAt: new Date().toISOString(),
+              status: "generating" as const,
+              waiting: false,
+              reasoningStreaming: isReasoning,
+            },
+          ];
+        });
+        setStreaming(true);
       }),
 
       events.on("chat.done", (data) => {
-        console.log("[chat] chat.done", data);
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === data.messageId ? { ...m, status: "complete" } : m,
-          ),
-        );
+        const messageId = data.messageId as string;
+        const conversationId = data.conversationId as string;
+        setMessages((prev) => {
+          if (!prev.some((m) => m.id === messageId)) {
+            // Empty response — no tokens preceded this event.
+            return [
+              ...prev,
+              {
+                id: messageId,
+                role: "assistant" as const,
+                text: "",
+                createdAt: new Date().toISOString(),
+                status: "complete" as const,
+                waiting: false,
+                reasoningStreaming: false,
+              },
+            ];
+          }
+          return prev.map((m) =>
+            m.id === messageId
+              ? { ...m, status: "complete" as const, reasoningStreaming: false }
+              : m,
+          );
+        });
         setStreaming(false);
+
+        // Fetch the final message with stats (timing, token usage) — these
+        // are written by the worker right before chat.done but aren't carried
+        // in the event payload. Per the architecture: "push the trigger, pull
+        // the data."
+        fetchConversation(conversationId)
+          .then((conv) => {
+            const msg = conv.messages.find((m) => m.id === messageId);
+            if (!msg) return;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === messageId
+                  ? { ...m, stats: msg.stats, status: "complete" as const }
+                  : m,
+              ),
+            );
+          })
+          .catch(() => {
+            // Stats are nice-to-have, not critical — ignore fetch failures.
+          });
       }),
 
       events.on("chat.error", (data) => {
-        console.log("[chat] chat.error", data);
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === data.messageId ? { ...m, status: "error" } : m,
+            m.id === data.messageId ? { ...m, status: "error" as const } : m,
           ),
         );
         setStreaming(false);
@@ -211,7 +271,7 @@ export function useChatV1(conversationId: string) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: "Bearer 1337",
+            Authorization: `Bearer ${getApiToken()}`,
           },
           body: JSON.stringify({
             conversationId,

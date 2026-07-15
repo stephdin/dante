@@ -7,8 +7,8 @@
 
 type Waiter = { resolve: (id: string) => void };
 
-let queue: string[] = [];
-let waiters: Waiter[] = [];
+const queue: string[] = [];
+const waiters: Waiter[] = [];
 
 export function push(jobId: string) {
   if (waiters.length > 0) {

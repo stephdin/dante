@@ -1,33 +1,11 @@
 import { getDb } from "../db/db.ts";
+import { getConfig } from "../db/config.ts";
+import type { JobRow, MessageRow } from "../db/rows.ts";
 import { push, take } from "./queue.ts";
-import { isExhausted, scheduleRetry } from "./retry.ts";
+import { isExhausted, scheduleRetry, backoffDelay } from "./retry.ts";
 import { broadcast } from "../events/broadcaster.ts";
 import { streamChat } from "../model/client.ts";
 import type { Config, Message, MessagePart } from "../../shared/types.ts";
-
-// ── Row types ────────────────────────────────────────────────────────────────
-
-type JobRow = {
-  id: string;
-  conversation_id: string;
-  message_id: string;
-  preset_id: string;
-  status: "pending" | "running" | "completed" | "failed" | "dead" | "cancelled";
-  retry_count: number;
-  max_retries: number;
-  next_retry_at: string | null;
-  error_message: string | null;
-};
-
-type MessageRow = {
-  id: string;
-  conversation_id: string;
-  role: "user" | "assistant";
-  parts: string;
-  stats: string | null;
-  status: "generating" | "complete" | "error" | "cancelled";
-  created_at: string;
-};
 
 // ── Startup ──────────────────────────────────────────────────────────────────
 
@@ -84,13 +62,15 @@ async function processJob(jobId: string) {
   db.prepare(
     "UPDATE generation_jobs SET status = 'running', updated_at = ? WHERE id = ?",
   ).run(ts(), jobId);
+  broadcast(job.conversation_id, {
+    type: "job.status",
+    jobId,
+    status: "running",
+  });
 
   try {
     // Resolve preset & provider from config
-    const configRow = db
-      .prepare("SELECT json FROM config WHERE id = 1")
-      .get<{ json: string }>();
-    const config = JSON.parse(configRow!.json) as Config;
+    const config = getConfig();
     const preset = config.presets.find((p) => p.id === job.preset_id);
     if (!preset) throw new Error(`preset "${job.preset_id}" not found`);
 
@@ -150,16 +130,32 @@ async function processJob(jobId: string) {
     const parts: MessagePart[] = [];
     let lastFlush = Date.now();
 
+    // Timing — measured server-side so it survives page reloads
+    const streamStartMs = Date.now();
+    let firstOutputMs: number | null = null;
+    let reasoningStartMs: number | null = null;
+    let reasoningEndMs: number | null = null;
+
     for await (const part of stream) {
-      // Cancel check
+      // Cancel check — treat missing row as cancelled too (conversation may
+      // have been deleted, cascading the job row away).
       const current = db
         .prepare("SELECT status FROM generation_jobs WHERE id = ?")
         .get<{ status: string }>(job.id);
-      if (current?.status === "cancelled") return;
+      if (!current || current.status === "cancelled") return;
+
+      if (firstOutputMs === null) firstOutputMs = Date.now();
+      if (part.type === "reasoning") {
+        if (reasoningStartMs === null) reasoningStartMs = Date.now();
+      } else if (
+        part.type === "text" &&
+        reasoningStartMs !== null &&
+        reasoningEndMs === null
+      ) {
+        reasoningEndMs = Date.now();
+      }
 
       parts.push(part);
-
-      console.log(`worker: job ${job.id} token (${parts.length} parts)`);
 
       // Broadcast immediately (client sees real-time)
       broadcast(job.conversation_id, {
@@ -179,33 +175,59 @@ async function processJob(jobId: string) {
       }
     }
 
-    // Final flush
-    db.prepare("UPDATE messages SET parts = ? WHERE id = ?").run(
-      JSON.stringify(parts),
-      job.message_id,
-    );
-
     // Collect stats
     const [reason, tokUsage] = await Promise.all([finishReason, usage]);
+    const streamEndMs = Date.now();
+
+    // If reasoning never ended (no text followed it), close it at stream end
+    if (reasoningStartMs !== null && reasoningEndMs === null) {
+      reasoningEndMs = streamEndMs;
+    }
+
+    const responseTimeMs = streamEndMs - streamStartMs;
+    const reasoningTimeMs =
+      reasoningStartMs !== null && reasoningEndMs !== null
+        ? reasoningEndMs - reasoningStartMs
+        : undefined;
+    const timeToFirstOutputMs =
+      firstOutputMs !== null ? firstOutputMs - streamStartMs : undefined;
+    const outputTokensPerSecond =
+      tokUsage.outputTokens && responseTimeMs > 0
+        ? tokUsage.outputTokens / (responseTimeMs / 1000)
+        : undefined;
+
     const stats = {
       provider: provider.name,
       modelId: preset.modelId,
       finishReason: reason,
       usage: tokUsage,
+      performance: {
+        responseTimeMs,
+        timeToFirstOutputMs,
+        reasoningTimeMs,
+        outputTokensPerSecond,
+      },
     };
 
-    // Mark complete
-    db.prepare(
-      "UPDATE messages SET status = 'complete', stats = ? WHERE id = ?",
-    ).run(JSON.stringify(stats), job.message_id);
-    db.prepare(
-      "UPDATE generation_jobs SET status = 'completed', updated_at = ? WHERE id = ?",
-    ).run(ts(), job.id);
+    // Final flush + status update (atomic)
+    db.transaction(() => {
+      db.prepare(
+        "UPDATE messages SET parts = ?, status = 'complete', stats = ? WHERE id = ?",
+      ).run(JSON.stringify(parts), JSON.stringify(stats), job.message_id);
+      db.prepare(
+        "UPDATE generation_jobs SET status = 'completed', updated_at = ? WHERE id = ?",
+      ).run(ts(), job.id);
+    })();
 
     broadcast(job.conversation_id, {
       type: "chat.done",
       conversationId: job.conversation_id,
       messageId: job.message_id,
+    });
+    broadcast(job.conversation_id, {
+      type: "job.status",
+      jobId,
+      status: "completed",
     });
 
     console.log(
@@ -219,33 +241,44 @@ async function processJob(jobId: string) {
     const exhausted = isExhausted(retryCount, job.max_retries);
 
     if (exhausted) {
-      getDb()
-        .prepare(
+      db.transaction(() => {
+        db.prepare(
           `UPDATE generation_jobs
-         SET status = 'dead', retry_count = ?, error_message = ?, updated_at = ?
-         WHERE id = ?`,
-        )
-        .run(retryCount, errorMessage, ts(), jobId);
-      getDb()
-        .prepare("UPDATE messages SET status = 'error' WHERE id = ?")
-        .run(job.message_id);
+           SET status = 'dead', retry_count = ?, error_message = ?, updated_at = ?
+           WHERE id = ?`,
+        ).run(retryCount, errorMessage, ts(), jobId);
+        db.prepare("UPDATE messages SET status = 'error' WHERE id = ?").run(
+          job.message_id,
+        );
+      })();
+
       broadcast(job.conversation_id, {
         type: "chat.error",
         conversationId: job.conversation_id,
         messageId: job.message_id,
         error: errorMessage,
       });
+      broadcast(job.conversation_id, {
+        type: "job.status",
+        jobId,
+        status: "dead",
+      });
     } else {
       const nextRetryAt = new Date(
-        Date.now() + Math.min(retryCount, 5) * 30_000,
+        Date.now() + backoffDelay(retryCount),
       ).toISOString();
-      getDb()
-        .prepare(
-          `UPDATE generation_jobs
+
+      db.prepare(
+        `UPDATE generation_jobs
          SET status = 'failed', retry_count = ?, next_retry_at = ?, error_message = ?, updated_at = ?
          WHERE id = ?`,
-        )
-        .run(retryCount, nextRetryAt, errorMessage, ts(), jobId);
+      ).run(retryCount, nextRetryAt, errorMessage, ts(), jobId);
+
+      broadcast(job.conversation_id, {
+        type: "job.status",
+        jobId,
+        status: "failed",
+      });
       scheduleRetry(jobId, retryCount, push);
     }
   }
