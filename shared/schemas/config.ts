@@ -7,16 +7,22 @@ import { z } from "zod";
 
 // ── Entity schemas ───────────────────────────────────────────────────────────
 
+// Which AI SDK package a model is served through. Lives on the model, not
+// the provider, because a single provider (e.g. OpenCode Go) can expose some
+// models via /v1/chat/completions and others via /v1/messages.
+export const sdkTypeSchema = z.enum(["openai-compatible", "anthropic"]);
+export type SdkType = z.infer<typeof sdkTypeSchema>;
+
 export const modelSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
+  type: sdkTypeSchema,
 });
 export type Model = z.infer<typeof modelSchema>;
 
 export const providerSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  type: z.enum(["openai-compatible", "anthropic"]),
   url: z.string().url(),
   models: z.array(modelSchema).min(1),
 });

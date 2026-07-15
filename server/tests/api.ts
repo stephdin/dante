@@ -162,9 +162,10 @@ console.log("\nChat");
       {
         id: "test",
         name: "Test",
-        type: "openai-compatible",
         url: "https://example.com/v1",
-        models: [{ id: "test-model", name: "Test Model" }],
+        models: [
+          { id: "test-model", name: "Test Model", type: "openai-compatible" },
+        ],
       },
     ],
     assistants: [
@@ -280,9 +281,8 @@ console.log("\nConfig");
       {
         id: "openai",
         name: "OpenAI",
-        type: "openai-compatible",
         url: "https://api.openai.com/v1",
-        models: [{ id: "gpt-4", name: "GPT-4" }],
+        models: [{ id: "gpt-4", name: "GPT-4", type: "openai-compatible" }],
       },
     ],
     assistants: [

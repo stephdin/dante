@@ -3,6 +3,7 @@
 
 // Re-export config types — pure type re-export, fully erased at compile time.
 export type {
+  SdkType,
   Model,
   Provider,
   Assistant,

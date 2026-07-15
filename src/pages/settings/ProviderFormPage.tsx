@@ -8,13 +8,21 @@ import {
   Container,
   Group,
   Loader,
+  Menu,
   Modal,
   Stack,
   Text,
   TextInput,
   Title,
 } from "@mantine/core";
-import { IconArrowLeft, IconPlus, IconTrash } from "@tabler/icons-react";
+import {
+  IconArrowLeft,
+  IconCheck,
+  IconLetterA,
+  IconLetterO,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
 
 import { providerSchema } from "@shared/schemas/config.ts";
 import { useSettingsFormContext } from "./hooks.ts";
@@ -37,14 +45,12 @@ export default function ProviderFormPage() {
       ? {
           id: "",
           name: "",
-          type: "openai-compatible" as string,
           url: "",
-          models: [] as { id: string; name: string }[],
+          models: [] as { id: string; name: string; type: string }[],
         }
       : {
           id: entity?.id ?? "",
           name: entity?.name ?? "",
-          type: entity?.type ?? "",
           url: entity?.url ?? "",
           models: entity?.models ?? [],
         },
@@ -172,13 +178,6 @@ export default function ProviderFormPage() {
           />
 
           <TextInput
-            label="Typ"
-            placeholder="openai-compatible oder anthropic"
-            withAsterisk
-            {...form.getInputProps("type")}
-          />
-
-          <TextInput
             label="URL"
             placeholder="https://api.example.com/v1"
             withAsterisk
@@ -194,7 +193,7 @@ export default function ProviderFormPage() {
                 Noch keine Modelle definiert.
               </Text>
             )}
-            {form.values.models.map((_model, index) => (
+            {form.values.models.map((model, index) => (
               <Group key={index} gap="xs" align="flex-start">
                 <TextInput
                   placeholder="Modell-ID (z.B. glm-5.2)"
@@ -208,6 +207,58 @@ export default function ProviderFormPage() {
                   withAsterisk
                   {...form.getInputProps(`models.${index}.name`)}
                 />
+                <Menu position="bottom-end" withinPortal>
+                  <Menu.Target>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      px={6}
+                      title={
+                        model.type === "anthropic"
+                          ? "anthropic"
+                          : "openai-compatible"
+                      }
+                      aria-label={model.type}
+                    >
+                      {model.type === "anthropic" ? (
+                        <IconLetterA size={16} />
+                      ) : (
+                        <IconLetterO size={16} />
+                      )}
+                    </Button>
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    <Menu.Item
+                      leftSection={<IconLetterO size={16} />}
+                      rightSection={
+                        model.type === "openai-compatible" ? (
+                          <IconCheck size={14} />
+                        ) : null
+                      }
+                      onClick={() =>
+                        form.setFieldValue(
+                          `models.${index}.type`,
+                          "openai-compatible",
+                        )
+                      }
+                    >
+                      openai-compatible
+                    </Menu.Item>
+                    <Menu.Item
+                      leftSection={<IconLetterA size={16} />}
+                      rightSection={
+                        model.type === "anthropic" ? (
+                          <IconCheck size={14} />
+                        ) : null
+                      }
+                      onClick={() =>
+                        form.setFieldValue(`models.${index}.type`, "anthropic")
+                      }
+                    >
+                      anthropic
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
                 <ActionIcon
                   color="red"
                   variant="subtle"
@@ -225,7 +276,11 @@ export default function ProviderFormPage() {
               leftSection={<IconPlus size={14} />}
               justify="flex-start"
               onClick={() =>
-                form.insertListItem("models", { id: "", name: "" })
+                form.insertListItem("models", {
+                  id: "",
+                  name: "",
+                  type: "openai-compatible",
+                })
               }
             >
               Modell hinzufügen

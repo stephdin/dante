@@ -13,6 +13,38 @@ function scanAndEnqueue() {
   const db = getDb();
   const now = new Date().toISOString();
 
+  // Diagnostic: show ALL jobs not in a terminal state, regardless of whether
+  // they're due for retry. This makes it visible when a failed job exists but
+  // its next_retry_at hasn't elapsed yet.
+  const all = db
+    .prepare(
+      `SELECT id, status, retry_count, next_retry_at, error_message
+       FROM generation_jobs
+       WHERE status NOT IN ('completed', 'dead', 'cancelled')`,
+    )
+    .all<{
+      id: string;
+      status: string;
+      retry_count: number;
+      next_retry_at: string | null;
+      error_message: string | null;
+    }>();
+  if (all.length > 0) {
+    console.log(
+      `worker: scan found ${all.length} non-terminal job(s) at ${now}:`,
+    );
+    for (const j of all) {
+      const due = j.next_retry_at ? j.next_retry_at <= now : "n/a";
+      console.log(
+        `  ${j.id}  status=${j.status}  retry=${j.retry_count}  next_retry_at=${j.next_retry_at}  due=${due}` +
+          (j.error_message ? `  err="${j.error_message}"` : ""),
+      );
+    }
+  } else {
+    console.log("worker: scan found no non-terminal jobs");
+  }
+
+  // The actual enqueue query — only due jobs.
   const rows = db
     .prepare(
       `SELECT id FROM generation_jobs
@@ -25,21 +57,24 @@ function scanAndEnqueue() {
     push(row.id);
   }
 
-  if (rows.length > 0) {
-    console.log(`worker: enqueued ${rows.length} orphaned job(s)`);
-  }
+  console.log(
+    `worker: enqueued ${rows.length} job(s) (${all.length - rows.length} not yet due)`,
+  );
 }
 
 // ── Main loop ────────────────────────────────────────────────────────────────
 
 export function start() {
+  console.log("worker: starting");
   scanAndEnqueue();
   loop();
 }
 
 async function loop() {
+  console.log("worker: loop running, waiting for jobs");
   while (true) {
     const jobId = await take();
+    console.log(`worker: processing job ${jobId}`);
     await processJob(jobId);
   }
 }
@@ -55,8 +90,17 @@ async function processJob(jobId: string) {
   const job = db
     .prepare("SELECT * FROM generation_jobs WHERE id = ?")
     .get<JobRow>(jobId);
-  if (!job) return;
-  if (job.status === "cancelled" || job.status === "dead") return;
+  if (!job) {
+    console.log(`worker: job ${jobId} not found in DB, skipping`);
+    return;
+  }
+  if (job.status === "cancelled" || job.status === "dead") {
+    console.log(`worker: job ${jobId} is ${job.status}, skipping`);
+    return;
+  }
+  console.log(
+    `worker: job ${jobId} status=${job.status} retry=${job.retry_count}/${job.max_retries} preset=${job.preset_id}`,
+  );
 
   // Mark running
   db.prepare(
@@ -74,17 +118,24 @@ async function processJob(jobId: string) {
     const preset = config.presets.find((p) => p.id === job.preset_id);
     if (!preset) throw new Error(`preset "${job.preset_id}" not found`);
 
-    // Find the provider that owns this model
+    // Find the provider (and model) that owns this model
     let provider: Config["providers"][number] | undefined;
+    let model: Config["providers"][number]["models"][number] | undefined;
     for (const p of config.providers) {
-      if (p.models.some((m) => m.id === preset.modelId)) {
+      const m = p.models.find((m) => m.id === preset.modelId);
+      if (m) {
         provider = p;
+        model = m;
         break;
       }
     }
-    if (!provider) {
+    if (!provider || !model) {
       throw new Error(`model "${preset.modelId}" not found in any provider`);
     }
+
+    console.log(
+      `worker: job ${jobId} → provider=${provider.id} model=${preset.modelId} sdk=${model.type}`,
+    );
 
     // Resolve API key
     const apiKey =
@@ -124,7 +175,7 @@ async function processJob(jobId: string) {
       modelId: preset.modelId,
       messages,
       systemPrompt,
-      providerType: provider.type as "openai-compatible" | "anthropic",
+      modelType: model.type,
     });
 
     const parts: MessagePart[] = [];
@@ -241,6 +292,9 @@ async function processJob(jobId: string) {
     const exhausted = isExhausted(retryCount, job.max_retries);
 
     if (exhausted) {
+      console.log(
+        `worker: job ${jobId} → DEAD (retries exhausted: ${retryCount}/${job.max_retries})`,
+      );
       db.transaction(() => {
         db.prepare(
           `UPDATE generation_jobs
@@ -279,6 +333,9 @@ async function processJob(jobId: string) {
         jobId,
         status: "failed",
       });
+      console.log(
+        `worker: job ${jobId} → FAILED, will retry #${retryCount}/${job.max_retries} at ${nextRetryAt} (in ${Math.round(backoffDelay(retryCount) / 1000)}s)`,
+      );
       scheduleRetry(jobId, retryCount, push);
     }
   }

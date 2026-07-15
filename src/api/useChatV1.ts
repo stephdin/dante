@@ -234,10 +234,28 @@ export function useChatV1(conversationId: string) {
     };
   }, [conversationId]);
 
-  // Re-seed on reconnect (WS disconnected and reconnected)
+  // Re-seed on reconnect (WS disconnected and reconnected). The seed effect
+  // above won't re-run on its own — it only fires when `conversation` changes,
+  // and useConversation doesn't refetch on reconnect. So we fetch directly
+  // here, re-seed messages from the DB (the worker flushes every 1s + on
+  // completion), and fix up the streaming flag in case chat.done was missed.
   useEffect(() => {
     return events.on("reconnect", () => {
-      seededRef.current = false;
+      fetchConversation(conversationId)
+        .then((conv) => {
+          const fresh = conv.messages.map(serverMessageToChat);
+          setMessages(fresh);
+          seededRef.current = true;
+          // If a job finished while we were disconnected, stop the spinner.
+          // If one is still running, keep streaming — we're re-subscribed now
+          // and will receive subsequent tokens.
+          setStreaming(fresh.some((m) => m.status === "generating"));
+        })
+        .catch(() => {
+          // Fetch failed — leave existing state as-is. Flag stays cleared so
+          // a future conversation update can still seed.
+          seededRef.current = false;
+        });
     });
   }, [conversationId]);
 

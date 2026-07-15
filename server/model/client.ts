@@ -1,7 +1,7 @@
 import { streamText, type LanguageModel } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createAnthropic } from "@ai-sdk/anthropic";
-import type { Message, MessagePart } from "../../shared/types.ts";
+import type { Message, MessagePart, SdkType } from "../../shared/types.ts";
 
 export type StreamResult = {
   stream: AsyncIterable<MessagePart>;
@@ -24,23 +24,21 @@ export function streamChat(params: {
   modelId: string;
   messages: Message[];
   systemPrompt?: string;
-  providerType: "openai-compatible" | "anthropic";
+  modelType: SdkType;
 }): StreamResult {
   // Both factories return callable providers: provider(modelId) → LanguageModel.
-  // @ai-sdk/anthropic@1 produces LanguageModelV1; ai@7 expects V2+. Runtime-
-  // compatible — cast bridges the version gap until the SDK catches up.
   let model: LanguageModel;
-  if (params.providerType === "anthropic") {
+  if (params.modelType === "anthropic") {
     model = createAnthropic({
       apiKey: params.apiKey,
       baseURL: params.baseUrl,
-    })(params.modelId) as unknown as LanguageModel;
+    })(params.modelId);
   } else {
     model = createOpenAICompatible({
       apiKey: params.apiKey,
       baseURL: params.baseUrl,
       name: "dante",
-    })(params.modelId) as unknown as LanguageModel;
+    })(params.modelId);
   }
 
   const result = streamText({
