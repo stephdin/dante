@@ -15,13 +15,13 @@ import {
 } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
 
-import { mcpConnectionSchema } from "@shared/schemas/config.ts";
+import { mcpSchema } from "@shared/schemas/config.ts";
 import { useSettingsFormContext } from "./hooks.ts";
 import { createMcp, deleteMcp, updateMcp } from "../../api/config.ts";
 import { ApiError } from "../../api/client.ts";
-import type { McpConnection } from "@shared/types.ts";
+import type { Mcp } from "@shared/types.ts";
 
-const createSchema = mcpConnectionSchema.omit({ id: true, status: true });
+const createSchema = mcpSchema.omit({ id: true });
 
 export default function McpFormPage() {
   const { id, isNew, entity, loading, error, notFound } =
@@ -33,7 +33,12 @@ export default function McpFormPage() {
 
   const form = useForm({
     initialValues: isNew
-      ? { id: "", name: "", transport: "stdio", status: "disconnected" as const }
+      ? {
+          id: "",
+          name: "",
+          transport: "stdio",
+          status: "disconnected" as const,
+        }
       : {
           id: entity?.id ?? "",
           name: entity?.name ?? "",
@@ -46,7 +51,9 @@ export default function McpFormPage() {
   if (loading) {
     return (
       <Container size="md" p="md" w="100%">
-        <Stack align="center"><Loader /></Stack>
+        <Stack align="center">
+          <Loader />
+        </Stack>
       </Container>
     );
   }
@@ -55,7 +62,9 @@ export default function McpFormPage() {
     return (
       <Container size="md" p="md" w="100%">
         <Stack align="center">
-          <Text size="sm" c="red">Verbindung zum Server fehlgeschlagen.</Text>
+          <Text size="sm" c="red">
+            Verbindung zum Server fehlgeschlagen.
+          </Text>
           <Button variant="subtle" onClick={() => navigate("/settings")}>
             Zurück zu den Einstellungen
           </Button>
@@ -68,7 +77,9 @@ export default function McpFormPage() {
     return (
       <Container size="md" p="md" w="100%">
         <Stack align="center">
-          <Text size="sm" c="dimmed">MCP-Verbindung nicht gefunden.</Text>
+          <Text size="sm" c="dimmed">
+            MCP-Verbindung nicht gefunden.
+          </Text>
           <Button variant="subtle" onClick={() => navigate("/settings")}>
             Zurück zu den Einstellungen
           </Button>
@@ -93,7 +104,10 @@ export default function McpFormPage() {
       if (err instanceof ApiError && err.status === 409) {
         form.setFieldError("name", "Diese Verbindung wird noch verwendet.");
       } else {
-        form.setFieldError("name", "Speichern fehlgeschlagen. Bitte erneut versuchen.");
+        form.setFieldError(
+          "name",
+          "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+        );
       }
     } finally {
       setSubmitting(false);
@@ -189,7 +203,10 @@ export default function McpFormPage() {
 
       <Modal
         opened={deleteOpen}
-        onClose={() => { setDeleteOpen(false); setDeleteError(null); }}
+        onClose={() => {
+          setDeleteOpen(false);
+          setDeleteError(null);
+        }}
         title="MCP-Verbindung löschen?"
         size="sm"
       >
@@ -197,12 +214,19 @@ export default function McpFormPage() {
           <Text size="sm">
             Bist du sicher, dass du diese MCP-Verbindung löschen möchtest?
           </Text>
-          {deleteError && <Text size="sm" c="red">{deleteError}</Text>}
+          {deleteError && (
+            <Text size="sm" c="red">
+              {deleteError}
+            </Text>
+          )}
           <Group justify="flex-end">
             <Button
               variant="subtle"
               color="gray"
-              onClick={() => { setDeleteOpen(false); setDeleteError(null); }}
+              onClick={() => {
+                setDeleteOpen(false);
+                setDeleteError(null);
+              }}
             >
               Abbrechen
             </Button>

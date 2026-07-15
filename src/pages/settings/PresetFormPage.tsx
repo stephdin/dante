@@ -22,13 +22,8 @@ import { IconArrowLeft } from "@tabler/icons-react";
 import { presetSchema } from "@shared/schemas/config.ts";
 import { PRESET_ICONS, presetIcon } from "../../config/presetIcons.ts";
 import { useSettingsFormContext } from "./hooks.ts";
-import {
-  createPreset,
-  deletePreset,
-  updatePreset,
-} from "../../api/config.ts";
-import { ApiError } from "../../api/client.ts";
-import type { Preset } from "@shared/types.ts";
+import { saveConfig } from "../../api/queries.ts";
+import type { Config, Preset } from "../../shared/types.ts";
 
 const createSchema = presetSchema.omit({ id: true });
 
@@ -44,39 +39,26 @@ export default function PresetFormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Build grouped model options from providers' models.
   const modelOptions = useMemo(() => {
     if (!config) return [];
     return config.providers
       .filter((p) => p.models.length > 0)
       .map((p) => ({
         group: p.name,
-        items: p.models.map((m) => ({
-          value: m.id,
-          label: m.name,
-        })),
+        items: p.models.map((m) => ({ value: m.id, label: m.name })),
       }));
   }, [config]);
 
-  // Build assistant options.
   const assistantOptions = useMemo(() => {
     return (
-      config?.assistants.map((a) => ({
-        value: a.id,
-        label: a.name,
-      })) ?? []
+      config?.assistants.map((a) => ({ value: a.id, label: a.name })) ?? []
     );
   }, [config]);
 
-  // Build MCP multi-select options.
   const mcpOptions = useMemo(() => {
-    return (
-      config?.mcps.map((m) => ({
-        value: m.id,
-        label: m.name,
-      })) ?? []
-    );
+    return config?.mcps.map((m) => ({ value: m.id, label: m.name })) ?? [];
   }, [config]);
 
   const form = useForm({
@@ -105,7 +87,9 @@ export default function PresetFormPage() {
   if (loading) {
     return (
       <Container size="md" p="md" w="100%">
-        <Stack align="center"><Loader /></Stack>
+        <Stack align="center">
+          <Loader />
+        </Stack>
       </Container>
     );
   }
@@ -114,7 +98,9 @@ export default function PresetFormPage() {
     return (
       <Container size="md" p="md" w="100%">
         <Stack align="center">
-          <Text size="sm" c="red">Verbindung zum Server fehlgeschlagen.</Text>
+          <Text size="sm" c="red">
+            Verbindung zum Server fehlgeschlagen.
+          </Text>
           <Button variant="subtle" onClick={() => navigate("/settings")}>
             Zurück zu den Einstellungen
           </Button>
@@ -127,7 +113,9 @@ export default function PresetFormPage() {
     return (
       <Container size="md" p="md" w="100%">
         <Stack align="center">
-          <Text size="sm" c="dimmed">Preset nicht gefunden.</Text>
+          <Text size="sm" c="dimmed">
+            Preset nicht gefunden.
+          </Text>
           <Button variant="subtle" onClick={() => navigate("/settings")}>
             Zurück zu den Einstellungen
           </Button>
@@ -138,22 +126,28 @@ export default function PresetFormPage() {
 
   const handleSubmit = form.onSubmit(async (values) => {
     setSubmitting(true);
+    setSaveError(null);
     try {
+      const newConfig: Config = structuredClone(config!);
+
       if (isNew) {
-        const body = createSchema.parse(values);
-        const created = await createPreset(body);
-        navigate(`/settings/presets/${created.id}`);
+        const preset: Preset = {
+          ...createSchema.parse(values),
+          id: crypto.randomUUID(),
+        } as Preset;
+        newConfig.presets.push(preset);
       } else {
-        const body = presetSchema.parse(values);
-        await updatePreset(id, body);
-        navigate("/settings");
+        const preset = presetSchema.parse(values) as Preset;
+        const idx = newConfig.presets.findIndex((p) => p.id === id);
+        if (idx >= 0) newConfig.presets[idx] = preset;
       }
+
+      await saveConfig(newConfig);
+      navigate("/settings");
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        form.setFieldError("name", "Speichern fehlgeschlagen.");
-      } else {
-        form.setFieldError("name", "Speichern fehlgeschlagen. Bitte erneut versuchen.");
-      }
+      setSaveError(
+        err instanceof Error ? err.message : "Speichern fehlgeschlagen.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -163,14 +157,14 @@ export default function PresetFormPage() {
     setSubmitting(true);
     setDeleteError(null);
     try {
-      await deletePreset(id);
+      const newConfig: Config = structuredClone(config!);
+      newConfig.presets = newConfig.presets.filter((p) => p.id !== id);
+      await saveConfig(newConfig);
       navigate("/settings");
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        setDeleteError("Kann nicht gelöscht werden.");
-      } else {
-        setDeleteError("Löschen fehlgeschlagen. Bitte erneut versuchen.");
-      }
+      setDeleteError(
+        err instanceof Error ? err.message : "Löschen fehlgeschlagen.",
+      );
     } finally {
       setSubmitting(false);
       setDeleteOpen(false);
@@ -196,6 +190,12 @@ export default function PresetFormPage() {
             </Title>
           </Group>
 
+          {saveError && (
+            <Text size="sm" c="red">
+              {saveError}
+            </Text>
+          )}
+
           <TextInput
             label="Name"
             placeholder="z.B. Schnelles Modell"
@@ -212,9 +212,7 @@ export default function PresetFormPage() {
                 const Icon = presetIcon(opt.value);
                 return {
                   value: opt.value,
-                  label: (
-                    <Icon size={18} style={{ display: "block" }} />
-                  ),
+                  label: <Icon size={18} style={{ display: "block" }} />,
                 };
               })}
               {...form.getInputProps("iconId")}
@@ -236,7 +234,8 @@ export default function PresetFormPage() {
           />
           {modelOptions.length === 0 && (
             <Text size="xs" c="dimmed" mt={-12}>
-              Lege zuerst einen Modellanbieter an, um ein Modell auswählen zu können.
+              Lege zuerst einen Modellanbieter an, um ein Modell auswählen zu
+              können.
             </Text>
           )}
 
@@ -304,7 +303,10 @@ export default function PresetFormPage() {
 
       <Modal
         opened={deleteOpen}
-        onClose={() => { setDeleteOpen(false); setDeleteError(null); }}
+        onClose={() => {
+          setDeleteOpen(false);
+          setDeleteError(null);
+        }}
         title="Preset löschen?"
         size="sm"
       >
@@ -312,12 +314,19 @@ export default function PresetFormPage() {
           <Text size="sm">
             Bist du sicher, dass du dieses Preset löschen möchtest?
           </Text>
-          {deleteError && <Text size="sm" c="red">{deleteError}</Text>}
+          {deleteError && (
+            <Text size="sm" c="red">
+              {deleteError}
+            </Text>
+          )}
           <Group justify="flex-end">
             <Button
               variant="subtle"
               color="gray"
-              onClick={() => { setDeleteOpen(false); setDeleteError(null); }}
+              onClick={() => {
+                setDeleteOpen(false);
+                setDeleteError(null);
+              }}
             >
               Abbrechen
             </Button>

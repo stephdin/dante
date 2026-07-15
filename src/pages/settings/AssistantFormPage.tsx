@@ -18,35 +18,37 @@ import { IconArrowLeft } from "@tabler/icons-react";
 
 import { assistantSchema } from "@shared/schemas/config.ts";
 import { useSettingsFormContext } from "./hooks.ts";
-import {
-  createAssistant,
-  deleteAssistant,
-  updateAssistant,
-} from "../../api/config.ts";
-import { ApiError } from "../../api/client.ts";
-import type { Assistant } from "@shared/types.ts";
+import { saveConfig } from "../../api/queries.ts";
+import type { Assistant, Config } from "../../shared/types.ts";
 
 const createSchema = assistantSchema.omit({ id: true });
 
 export default function AssistantFormPage() {
-  const { id, isNew, entity, loading, error, notFound } =
+  const { id, isNew, entity, config, loading, error, notFound } =
     useSettingsFormContext<Assistant>("assistants");
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const form = useForm({
     initialValues: isNew
       ? { id: "", name: "", prompt: "" }
-      : { id: entity?.id ?? "", name: entity?.name ?? "", prompt: entity?.prompt ?? "" },
+      : {
+          id: entity?.id ?? "",
+          name: entity?.name ?? "",
+          prompt: entity?.prompt ?? "",
+        },
     validate: zodResolver(isNew ? createSchema : assistantSchema),
   });
 
   if (loading) {
     return (
       <Container size="md" p="md" w="100%">
-        <Stack align="center"><Loader /></Stack>
+        <Stack align="center">
+          <Loader />
+        </Stack>
       </Container>
     );
   }
@@ -55,7 +57,9 @@ export default function AssistantFormPage() {
     return (
       <Container size="md" p="md" w="100%">
         <Stack align="center">
-          <Text size="sm" c="red">Verbindung zum Server fehlgeschlagen.</Text>
+          <Text size="sm" c="red">
+            Verbindung zum Server fehlgeschlagen.
+          </Text>
           <Button variant="subtle" onClick={() => navigate("/settings")}>
             Zurück zu den Einstellungen
           </Button>
@@ -68,7 +72,9 @@ export default function AssistantFormPage() {
     return (
       <Container size="md" p="md" w="100%">
         <Stack align="center">
-          <Text size="sm" c="dimmed">Assistent nicht gefunden.</Text>
+          <Text size="sm" c="dimmed">
+            Assistent nicht gefunden.
+          </Text>
           <Button variant="subtle" onClick={() => navigate("/settings")}>
             Zurück zu den Einstellungen
           </Button>
@@ -79,23 +85,28 @@ export default function AssistantFormPage() {
 
   const handleSubmit = form.onSubmit(async (values) => {
     setSubmitting(true);
+    setSaveError(null);
     try {
+      const newConfig: Config = structuredClone(config!);
+
       if (isNew) {
-        const body = createSchema.parse(values);
-        const created = await createAssistant(body);
-        navigate(`/settings/assistants/${created.id}`);
+        const assistant: Assistant = {
+          ...createSchema.parse(values),
+          id: crypto.randomUUID(),
+        } as Assistant;
+        newConfig.assistants.push(assistant);
       } else {
-        const body = assistantSchema.parse(values);
-        await updateAssistant(id, body);
-        navigate("/settings");
+        const assistant = assistantSchema.parse(values) as Assistant;
+        const idx = newConfig.assistants.findIndex((a) => a.id === id);
+        if (idx >= 0) newConfig.assistants[idx] = assistant;
       }
+
+      await saveConfig(newConfig);
+      navigate("/settings");
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        form.setFieldError("name", "Dieser Assistent wird noch von einem Preset verwendet.");
-      } else {
-        // Generic error — could be an ApiError or a network error.
-        form.setFieldError("name", "Speichern fehlgeschlagen. Bitte erneut versuchen.");
-      }
+      setSaveError(
+        err instanceof Error ? err.message : "Speichern fehlgeschlagen.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -105,14 +116,14 @@ export default function AssistantFormPage() {
     setSubmitting(true);
     setDeleteError(null);
     try {
-      await deleteAssistant(id);
+      const newConfig: Config = structuredClone(config!);
+      newConfig.assistants = newConfig.assistants.filter((a) => a.id !== id);
+      await saveConfig(newConfig);
       navigate("/settings");
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        setDeleteError("Kann nicht gelöscht werden — wird noch in Presets verwendet.");
-      } else {
-        setDeleteError("Löschen fehlgeschlagen. Bitte erneut versuchen.");
-      }
+      setDeleteError(
+        err instanceof Error ? err.message : "Löschen fehlgeschlagen.",
+      );
     } finally {
       setSubmitting(false);
       setDeleteOpen(false);
@@ -137,6 +148,12 @@ export default function AssistantFormPage() {
               {isNew ? "Assistent hinzufügen" : "Assistent bearbeiten"}
             </Title>
           </Group>
+
+          {saveError && (
+            <Text size="sm" c="red">
+              {saveError}
+            </Text>
+          )}
 
           <TextInput
             label="Name"
@@ -183,20 +200,30 @@ export default function AssistantFormPage() {
 
       <Modal
         opened={deleteOpen}
-        onClose={() => { setDeleteOpen(false); setDeleteError(null); }}
+        onClose={() => {
+          setDeleteOpen(false);
+          setDeleteError(null);
+        }}
         title="Assistent löschen?"
         size="sm"
       >
         <Stack gap="md">
-          <Text size="sm">Bist du sicher, dass du diesen Assistenten löschen möchtest?</Text>
+          <Text size="sm">
+            Bist du sicher, dass du diesen Assistenten löschen möchtest?
+          </Text>
           {deleteError && (
-            <Text size="sm" c="red">{deleteError}</Text>
+            <Text size="sm" c="red">
+              {deleteError}
+            </Text>
           )}
           <Group justify="flex-end">
             <Button
               variant="subtle"
               color="gray"
-              onClick={() => { setDeleteOpen(false); setDeleteError(null); }}
+              onClick={() => {
+                setDeleteOpen(false);
+                setDeleteError(null);
+              }}
             >
               Abbrechen
             </Button>

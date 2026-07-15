@@ -1,9 +1,9 @@
 {
   "providers": [
     {
-      "id": "opencode-go",
+      "id": "opencode_go",
       "name": "OpenCode Go",
-      "type": "opencode",
+      "type": "openai-compatible",
       "url": "https://opencode.ai/zen/go/v1",
       "models": [
         { "id": "glm-5.2", "name": "GLM 5.2" },

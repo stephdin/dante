@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { apiGet } from "./client.ts";
+import { apiGet, apiPut } from "./client.ts";
 import type {
   Config,
   Conversation,
@@ -50,6 +50,12 @@ export function useConfig() {
 
 export function invalidateConfig() {
   configCache = null;
+}
+
+/** Save the full config and invalidate the local cache so useConfig refetches. */
+export async function saveConfig(config: Config): Promise<void> {
+  await apiPut("/config", config);
+  invalidateConfig();
 }
 
 export function useConversations() {

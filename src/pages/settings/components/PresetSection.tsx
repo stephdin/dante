@@ -1,7 +1,7 @@
 import { Badge, Button, EmptyState, Stack } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
-import type { Assistant, McpConnection, Preset, Provider } from "@shared/types.ts";
+import type { Assistant, Mcp, Preset, Provider } from "@shared/types.ts";
 
 import { presetIcon } from "../../../config/presetIcons.ts";
 import { ListItem } from "./ListItem.tsx";

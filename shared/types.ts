@@ -1,17 +1,25 @@
 // Shared domain types. Config entity types are derived from Zod schemas in
-// `shared/schemas/config.ts` to keep validation and types in sync. Message and
-// conversation types are handwritten here — they flow through the chat path
-// (AI SDK) and aren't user-facing config forms, so a Zod schema adds no value.
+// `shared/schemas/config.ts` to keep validation and types in sync.
 
 // Re-export config types — pure type re-export, fully erased at compile time.
 export type {
   Model,
   Provider,
   Assistant,
-  McpConnection,
+  Mcp,
   Preset,
   Config,
 } from "./schemas/config.ts";
+
+// ── Message parts (future-proof: text, reasoning, tool-call, tool-result) ───
+
+export type MessagePart =
+  { type: "text"; text: string } | { type: "reasoning"; text: string };
+// future:
+// | { type: "tool-call"; toolName: string; args: unknown }
+// | { type: "tool-result"; toolName: string; result: unknown };
+
+// ── Message stats (provider-side token / performance metadata) ───────────────
 
 export type MessageStats = {
   provider?: string;
@@ -33,15 +41,19 @@ export type MessageStats = {
   };
 };
 
+// ── Message ──────────────────────────────────────────────────────────────────
+
 export type Message = {
   id: string;
+  conversationId: string;
   role: "user" | "assistant";
-  text: string;
-  reasoning?: string; // model thinking, assistant-only
-  stats?: MessageStats; // provider-side token/performance metadata
-  starred?: boolean;
+  parts: MessagePart[];
+  stats?: MessageStats;
+  status: "generating" | "complete" | "error" | "cancelled";
   createdAt: string; // ISO 8601
 };
+
+// ── Conversation ─────────────────────────────────────────────────────────────
 
 export type Conversation = {
   id: string;
@@ -57,4 +69,20 @@ export type ConversationSummary = {
   label: string;
   preview: string;
   updatedAt: string; // ISO 8601
+};
+
+// ── Generation job ───────────────────────────────────────────────────────────
+
+export type GenerationJob = {
+  id: string;
+  conversationId: string;
+  messageId: string;
+  presetId: string;
+  status: "pending" | "running" | "completed" | "failed" | "dead" | "cancelled";
+  retryCount: number;
+  maxRetries: number;
+  nextRetryAt: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
 };

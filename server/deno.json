@@ -1,15 +1,15 @@
 {
   "tasks": {
-    "dev": "deno run --allow-net --allow-read --allow-env --env-file --allow-sys --allow-write --allow-ffi --watch main.ts",
-    "start": "deno run --allow-net --allow-read --allow-env --env-file --allow-sys --allow-write --allow-ffi main.ts",
-    "test": "deno test --allow-read --allow-ffi --allow-env"
+    "dev": "deno run --allow-net --allow-read --allow-env --allow-write --allow-ffi --allow-sys --env-file --watch main.ts",
+    "start": "deno run --allow-net --allow-read --allow-env --allow-write --allow-ffi --allow-sys --env-file main.ts",
+    "test:api": "deno run --allow-net --allow-env tests/api.ts"
   },
   "imports": {
     "hono": "jsr:@hono/hono@^4",
-    "hono/cors": "jsr:@hono/hono@^4/cors",
+    "@db/sqlite": "jsr:@db/sqlite@^0.13",
+    "zod": "npm:zod@^3",
     "ai": "npm:ai@^7.0.0",
     "@ai-sdk/openai-compatible": "npm:@ai-sdk/openai-compatible@^3.0.0",
-    "zod": "npm:zod@^3",
-    "@db/sqlite": "jsr:@db/sqlite@^0.13"
+    "@ai-sdk/anthropic": "npm:@ai-sdk/anthropic@^1.0.0"
   }
 }

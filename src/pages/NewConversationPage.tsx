@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { EmptyState } from "@mantine/core";
 import { IconSparkles } from "@tabler/icons-react";
 
+import { apiPost } from "../api/client.ts";
 import { ChatLayout } from "../components/ChatLayout.tsx";
 
 export default function NewConversationPage() {
@@ -14,9 +15,7 @@ export default function NewConversationPage() {
   async function handleSend(text: string, presetId: string | undefined) {
     setCreating(true);
     try {
-      const res = await fetch("/api/conversations", { method: "POST" });
-      if (!res.ok) throw new Error("create failed");
-      const { id } = (await res.json()) as { id: string };
+      const { id } = await apiPost<{ id: string }>("/conversations", {});
       navigate(`/conversation/${id}`, {
         state: { pendingMessage: text, presetId },
       });

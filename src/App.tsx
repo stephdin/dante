@@ -33,13 +33,12 @@ import {
 } from "@tabler/icons-react";
 import { ZodError } from "zod";
 
-import { apiPost } from "./api/client.ts";
+import { apiGet, apiPut } from "./api/client.ts";
 import { invalidateConfig, useConfig } from "./api/queries.ts";
 import { configSchema } from "@shared/schemas/config.ts";
 import type { Config } from "@shared/types.ts";
 import { ChatNavbar } from "./components/ChatNavbar.tsx";
 import AssistantFormPage from "./pages/settings/AssistantFormPage.tsx";
-import McpFormPage from "./pages/settings/McpFormPage.tsx";
 import PresetFormPage from "./pages/settings/PresetFormPage.tsx";
 import ProviderFormPage from "./pages/settings/ProviderFormPage.tsx";
 import ChatOverviewPage from "./pages/ChatOverviewPage.tsx";
@@ -69,13 +68,23 @@ function App() {
 
   // ── Export ───────────────────────────────────────────────────────────
 
-  function handleExportConfig() {
-    const a = document.createElement("a");
-    a.href = "/api/config/export";
-    a.download = `dante-config-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  async function handleExportConfig() {
+    try {
+      const config = await apiGet<Config>("/config");
+      const blob = new Blob([JSON.stringify(config, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `dante-config-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // Silently ignore — config fetch failed.
+    }
   }
 
   // ── Import ───────────────────────────────────────────────────────────
@@ -134,7 +143,7 @@ function App() {
     if (!importConfigData) return;
     setImportLoading(true);
     try {
-      await apiPost("/config/import", importConfigData);
+      await apiPut("/config", importConfigData);
       invalidateConfig();
       setImportModalOpen(false);
     } catch (err) {
@@ -232,8 +241,6 @@ function App() {
             path="/settings/assistants/:id"
             element={<AssistantFormPage />}
           />
-          <Route path="/settings/mcps/new" element={<McpFormPage />} />
-          <Route path="/settings/mcps/:id" element={<McpFormPage />} />
           <Route path="/settings/presets/new" element={<PresetFormPage />} />
           <Route path="/settings/presets/:id" element={<PresetFormPage />} />
           <Route path="*" element={<Navigate to="/new" replace />} />

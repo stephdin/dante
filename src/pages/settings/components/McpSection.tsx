@@ -1,12 +1,12 @@
 import { Button, EmptyState, Stack } from "@mantine/core";
 import { IconPlug, IconPlus } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
-import type { McpConnection } from "@shared/types.ts";
+import type { Mcp } from "@shared/types.ts";
 
 import { ListItem } from "./ListItem.tsx";
 import { SectionHeader } from "./SectionHeader.tsx";
 
-export function McpSection({ mcps }: { mcps: McpConnection[] }) {
+export function McpSection({ mcps }: { mcps: Mcp[] }) {
   const navigate = useNavigate();
 
   return (

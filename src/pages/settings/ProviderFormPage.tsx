@@ -18,27 +18,29 @@ import { IconArrowLeft, IconPlus, IconTrash } from "@tabler/icons-react";
 
 import { providerSchema } from "@shared/schemas/config.ts";
 import { useSettingsFormContext } from "./hooks.ts";
-import {
-  createProvider,
-  deleteProvider,
-  updateProvider,
-} from "../../api/config.ts";
-import { ApiError } from "../../api/client.ts";
-import type { Provider } from "@shared/types.ts";
+import { saveConfig } from "../../api/queries.ts";
+import type { Config, Provider } from "../../shared/types.ts";
 
 const createSchema = providerSchema.omit({ id: true });
 
 export default function ProviderFormPage() {
-  const { id, isNew, entity, loading, error, notFound } =
+  const { id, isNew, entity, config, loading, error, notFound } =
     useSettingsFormContext<Provider>("providers");
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const form = useForm({
     initialValues: isNew
-      ? { id: "", name: "", type: "", url: "", models: [] as { id: string; name: string }[] }
+      ? {
+          id: "",
+          name: "",
+          type: "openai-compatible" as string,
+          url: "",
+          models: [] as { id: string; name: string }[],
+        }
       : {
           id: entity?.id ?? "",
           name: entity?.name ?? "",
@@ -52,7 +54,9 @@ export default function ProviderFormPage() {
   if (loading) {
     return (
       <Container size="md" p="md" w="100%">
-        <Stack align="center"><Loader /></Stack>
+        <Stack align="center">
+          <Loader />
+        </Stack>
       </Container>
     );
   }
@@ -61,7 +65,9 @@ export default function ProviderFormPage() {
     return (
       <Container size="md" p="md" w="100%">
         <Stack align="center">
-          <Text size="sm" c="red">Verbindung zum Server fehlgeschlagen.</Text>
+          <Text size="sm" c="red">
+            Verbindung zum Server fehlgeschlagen.
+          </Text>
           <Button variant="subtle" onClick={() => navigate("/settings")}>
             Zurück zu den Einstellungen
           </Button>
@@ -74,7 +80,9 @@ export default function ProviderFormPage() {
     return (
       <Container size="md" p="md" w="100%">
         <Stack align="center">
-          <Text size="sm" c="dimmed">Anbieter nicht gefunden.</Text>
+          <Text size="sm" c="dimmed">
+            Anbieter nicht gefunden.
+          </Text>
           <Button variant="subtle" onClick={() => navigate("/settings")}>
             Zurück zu den Einstellungen
           </Button>
@@ -85,25 +93,29 @@ export default function ProviderFormPage() {
 
   const handleSubmit = form.onSubmit(async (values) => {
     setSubmitting(true);
+    setSaveError(null);
     try {
+      const newConfig: Config = structuredClone(config!);
+
       if (isNew) {
-        const body = createSchema.parse(values);
-        const created = await createProvider(body);
-        navigate(`/settings/providers/${created.id}`);
+        const provider: Provider = {
+          ...createSchema.parse(values),
+          id: crypto.randomUUID(),
+        } as Provider;
+        newConfig.providers.push(provider);
+        navigate(`/settings/providers/${provider.id}`);
       } else {
-        const body = providerSchema.parse(values);
-        await updateProvider(id, body);
-        navigate("/settings");
+        const provider = providerSchema.parse(values) as Provider;
+        const idx = newConfig.providers.findIndex((p) => p.id === id);
+        if (idx >= 0) newConfig.providers[idx] = provider;
       }
+
+      await saveConfig(newConfig);
+      if (isNew) navigate("/settings");
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        form.setFieldError(
-          "name",
-          "Dieser Anbieter kann nicht gelöscht werden — Modelle werden noch von Presets verwendet.",
-        );
-      } else {
-        form.setFieldError("name", "Speichern fehlgeschlagen. Bitte erneut versuchen.");
-      }
+      setSaveError(
+        err instanceof Error ? err.message : "Speichern fehlgeschlagen.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -113,16 +125,14 @@ export default function ProviderFormPage() {
     setSubmitting(true);
     setDeleteError(null);
     try {
-      await deleteProvider(id);
+      const newConfig: Config = structuredClone(config!);
+      newConfig.providers = newConfig.providers.filter((p) => p.id !== id);
+      await saveConfig(newConfig);
       navigate("/settings");
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        setDeleteError(
-          "Kann nicht gelöscht werden — ein Preset verwendet noch ein Modell dieses Anbieters.",
-        );
-      } else {
-        setDeleteError("Löschen fehlgeschlagen. Bitte erneut versuchen.");
-      }
+      setDeleteError(
+        err instanceof Error ? err.message : "Löschen fehlgeschlagen.",
+      );
     } finally {
       setSubmitting(false);
       setDeleteOpen(false);
@@ -148,6 +158,12 @@ export default function ProviderFormPage() {
             </Title>
           </Group>
 
+          {saveError && (
+            <Text size="sm" c="red">
+              {saveError}
+            </Text>
+          )}
+
           <TextInput
             label="Name"
             placeholder="z.B. OpenCode Go"
@@ -157,7 +173,7 @@ export default function ProviderFormPage() {
 
           <TextInput
             label="Typ"
-            placeholder='z.B. "OpenAI-kompatibel" oder "Lokal"'
+            placeholder="openai-compatible oder anthropic"
             withAsterisk
             {...form.getInputProps("type")}
           />
@@ -244,7 +260,10 @@ export default function ProviderFormPage() {
 
       <Modal
         opened={deleteOpen}
-        onClose={() => { setDeleteOpen(false); setDeleteError(null); }}
+        onClose={() => {
+          setDeleteOpen(false);
+          setDeleteError(null);
+        }}
         title="Anbieter löschen?"
         size="sm"
       >
@@ -253,12 +272,19 @@ export default function ProviderFormPage() {
             Bist du sicher, dass du diesen Anbieter löschen möchtest? Alle
             zugehörigen Modelle werden ebenfalls gelöscht.
           </Text>
-          {deleteError && <Text size="sm" c="red">{deleteError}</Text>}
+          {deleteError && (
+            <Text size="sm" c="red">
+              {deleteError}
+            </Text>
+          )}
           <Group justify="flex-end">
             <Button
               variant="subtle"
               color="gray"
-              onClick={() => { setDeleteOpen(false); setDeleteError(null); }}
+              onClick={() => {
+                setDeleteOpen(false);
+                setDeleteError(null);
+              }}
             >
               Abbrechen
             </Button>

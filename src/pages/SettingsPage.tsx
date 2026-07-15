@@ -2,7 +2,6 @@ import { Container, Loader, Space, Stack, Text } from "@mantine/core";
 
 import { useConfig } from "../api/queries.ts";
 import { AssistantSection } from "./settings/components/AssistantSection.tsx";
-import { McpSection } from "./settings/components/McpSection.tsx";
 import { PresetSection } from "./settings/components/PresetSection.tsx";
 import { ProviderSection } from "./settings/components/ProviderSection.tsx";
 import { ThemeSection } from "./settings/components/ThemeSection.tsx";
@@ -35,8 +34,6 @@ export default function SettingsPage() {
             <ProviderSection providers={config?.providers ?? []} />
             <Space h="xl" />
             <AssistantSection assistants={config?.assistants ?? []} />
-            <Space h="xl" />
-            <McpSection mcps={config?.mcps ?? []} />
             <Space h={160} />
           </>
         )}
