@@ -88,6 +88,13 @@ console.log("\nAuth");
 // Conversations
 console.log("\nConversations");
 {
+  // Clean up any leftover conversations from previous runs so the list starts
+  // empty and the count assertions below are deterministic.
+  const existing = await req("GET", "/api/conversations", TOKEN);
+  for (const c of existing.body as Array<{ id: string }>) {
+    await req("DELETE", `/api/conversations/${c.id}`, TOKEN);
+  }
+
   // List (empty initially)
   const r1 = await req("GET", "/api/conversations", TOKEN);
   assert(r1.status === 200, "GET /api/conversations → 200");
@@ -212,8 +219,8 @@ console.log("\nChat");
   assert(msgs?.[0]?.role === "user", "first message is user");
   assert(msgs?.[1]?.role === "assistant", "second message is assistant");
   // presetId is persisted per-message so the input can default to the
-  // last-used preset on reload and statistics can label which model made
-  // which reply.
+  // last-used preset on reload and statistics can label which model made the
+  // reply.
   assert(msgs?.[0]?.presetId === "default", "user message carries presetId");
   assert(
     msgs?.[1]?.presetId === "default",
@@ -270,6 +277,99 @@ console.log("\nChat");
     text: "hi",
   });
   assert(r4.status === 404, "POST nonexistent conversation → 404");
+}
+
+// Messages
+console.log("\nMessages");
+{
+  // Create a fresh conversation so the shared chat/job used by other tests
+  // is not affected.
+  const conv = await req("POST", "/api/conversations", TOKEN, {
+    label: "Messages test",
+  });
+  const convId = (conv.body as Record<string, unknown>).id as string;
+
+  const chatRes = await req("POST", "/api/chat", TOKEN, {
+    conversationId: convId,
+    text: "Hello actions",
+  });
+  assert(chatRes.status === 200, "POST /api/chat for actions → 200");
+  const chatResult = chatRes.body as Record<string, unknown>;
+  const assistantId = chatResult.messageId as string;
+
+  await new Promise((r) => setTimeout(r, 300));
+  const convData = await req("GET", `/api/conversations/${convId}`, TOKEN);
+  const msgs = (convData.body as Record<string, unknown>)?.messages as Array<
+    Record<string, unknown>
+  >;
+  const userId = msgs?.find((m) => m.role === "user")?.id as string;
+  const actualAssistantId = msgs?.find((m) => m.role === "assistant")
+    ?.id as string;
+  assert(actualAssistantId === assistantId, "action test assistant id matches");
+
+  // Cancel the in-flight job so the assistant doesn't change mid-test.
+  const actionJobId = chatResult.jobId as string;
+  await req("POST", `/api/jobs/${actionJobId}/cancel`, TOKEN);
+
+  // Star the assistant message.
+  const star = await req("PATCH", `/api/messages/${assistantId}`, TOKEN, {
+    starred: true,
+  });
+  assert(star.status === 200, "PATCH /api/messages/:id star → 200");
+  assert(
+    (star.body as Record<string, unknown>)?.starred === true,
+    "star → message is starred",
+  );
+
+  const starredConv = await req("GET", `/api/conversations/${convId}`, TOKEN);
+  const starredMsgs = (starredConv.body as Record<string, unknown>)
+    ?.messages as Array<Record<string, unknown>>;
+  assert(
+    starredMsgs?.find((m) => m.id === assistantId)?.starred === true,
+    "star → persisted in conversation",
+  );
+
+  // Delete the assistant message.
+  const del = await req("DELETE", `/api/messages/${assistantId}`, TOKEN);
+  assert(del.status === 200, "DELETE /api/messages/:id → 200");
+  const afterDelete = await req("GET", `/api/conversations/${convId}`, TOKEN);
+  const afterDeleteMsgs = (afterDelete.body as Record<string, unknown>)
+    ?.messages as Array<Record<string, unknown>>;
+  assert(afterDeleteMsgs?.length === 1, "delete → assistant removed");
+  assert(afterDeleteMsgs?.[0]?.role === "user", "delete → user remains");
+
+  // Regenerate the user message (creates a new assistant placeholder).
+  const regenerate = await req(
+    "POST",
+    `/api/messages/${userId}/regenerate`,
+    TOKEN,
+  );
+  assert(regenerate.status === 200, "POST /api/messages/:id/regenerate → 200");
+  const regeneratedId = (regenerate.body as Record<string, unknown>)
+    ?.messageId as string;
+  assert(typeof regeneratedId === "string", "regenerate → returns messageId");
+  const afterRegenerate = await req(
+    "GET",
+    `/api/conversations/${convId}`,
+    TOKEN,
+  );
+  const afterRegenerateMsgs = (afterRegenerate.body as Record<string, unknown>)
+    ?.messages as Array<Record<string, unknown>>;
+  assert(
+    afterRegenerateMsgs?.length === 2,
+    "regenerate → assistant placeholder created",
+  );
+  const regeneratedAssistant = afterRegenerateMsgs?.find(
+    (m) => m.id === regeneratedId,
+  );
+  assert(
+    regeneratedAssistant?.role === "assistant",
+    "regenerate → new assistant",
+  );
+  assert(
+    regeneratedAssistant?.status === "generating",
+    "regenerate → assistant is generating",
+  );
 }
 
 // Jobs

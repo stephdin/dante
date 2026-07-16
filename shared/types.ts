@@ -57,6 +57,8 @@ export type Message = {
   // "remember last preset" behaviour in the input and the per-message label in
   // statistics.
   presetId?: string;
+  // User-facing star marker. Persisted so starred replies survive reloads.
+  starred?: boolean;
 };
 
 // ── Conversation ─────────────────────────────────────────────────────────────

@@ -74,6 +74,13 @@ export const MIGRATIONS: { version: number; sql: string }[] = [
       ALTER TABLE messages ADD COLUMN preset_id TEXT;
     `,
   },
+  {
+    // v3: allow the user to star individual assistant messages.
+    version: 3,
+    sql: `
+      ALTER TABLE messages ADD COLUMN starred INTEGER NOT NULL DEFAULT 0;
+    `,
+  },
 ];
 
 /** Seed the config table with an empty default if no row exists. */

@@ -23,6 +23,7 @@ export type MessageRow = {
   status: "generating" | "complete" | "error" | "cancelled";
   created_at: string;
   preset_id: string | null;
+  starred: number;
 };
 
 export type JobRow = {
@@ -49,6 +50,7 @@ export function rowToMessage(row: MessageRow): Message {
     status: row.status,
     createdAt: row.created_at,
     presetId: row.preset_id ?? undefined,
+    starred: row.starred === 1,
   };
 }
 

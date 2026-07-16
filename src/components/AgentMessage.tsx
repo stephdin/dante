@@ -10,6 +10,7 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import {
+  IconCheck,
   IconChevronDown,
   IconCopy,
   IconRefresh,
@@ -28,6 +29,7 @@ import { useMessageActions } from "./useMessageActions.ts";
 import classes from "./AgentMessage.module.css";
 
 type AgentMessageProps = {
+  id: string;
   text: string;
   reasoning?: string;
   stats?: MessageStats;
@@ -36,14 +38,19 @@ type AgentMessageProps = {
   reasoningStreaming?: boolean;
   starred?: boolean;
   waiting?: boolean;
+  status?: "generating" | "complete" | "error" | "cancelled";
   // Display name of the preset that produced this message. Resolved by the
   // parent from the message's presetId + the config. undefined = no preset
   // info available (e.g. messages from before the migration).
   presetName?: string;
+  onStar: (id: string, starred: boolean) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  onRegenerate: (id: string) => Promise<void>;
 };
 
 export const AgentMessage = memo(
   function AgentMessage({
+    id,
     text,
     reasoning,
     stats,
@@ -52,10 +59,57 @@ export const AgentMessage = memo(
     reasoningStreaming = false,
     starred = false,
     waiting = false,
+    status,
     presetName,
+    onStar,
+    onDelete,
+    onRegenerate,
   }: AgentMessageProps) {
     const { ref, actionsStyle } = useMessageActions();
     const { settings } = useDisplaySettings();
+    const [copied, setCopied] = useState(false);
+    const [starring, setStarring] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [regenerating, setRegenerating] = useState(false);
+
+    const busy = status === "generating";
+
+    const handleCopy = async () => {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      } catch {
+        // Ignore clipboard errors.
+      }
+    };
+
+    const handleStar = async () => {
+      setStarring(true);
+      try {
+        await onStar(id, !starred);
+      } finally {
+        setStarring(false);
+      }
+    };
+
+    const handleRegenerate = async () => {
+      setRegenerating(true);
+      try {
+        await onRegenerate(id);
+      } finally {
+        setRegenerating(false);
+      }
+    };
+
+    const handleDelete = async () => {
+      setDeleting(true);
+      try {
+        await onDelete(id);
+      } finally {
+        setDeleting(false);
+      }
+    };
     // Initial state only: the setting controls whether the block starts
     // expanded when the message mounts. The user can still toggle it per
     // message, and changing the setting doesn't retroactively affect
@@ -156,56 +210,71 @@ export const AgentMessage = memo(
               {formatTime(createdAt)}
             </Text>
           )}
-          {starred && (
+          {starred && !busy && (
             <ActionIcon
               variant="transparent"
               color="yellow"
               size="sm"
               title="Markierung entfernen"
+              loading={starring}
+              disabled={starring}
+              onClick={handleStar}
             >
               <IconStarFilled size={14} />
             </ActionIcon>
           )}
-          <Group gap={4} style={actionsStyle}>
-            {!starred && (
+          {!busy && (
+            <Group gap={4} style={actionsStyle}>
+              {!starred && (
+                <ActionIcon
+                  variant="transparent"
+                  c="dimmed"
+                  size="sm"
+                  title="Markieren"
+                  loading={starring}
+                  disabled={starring}
+                  onClick={handleStar}
+                >
+                  <IconStar size={14} />
+                </ActionIcon>
+              )}
               <ActionIcon
                 variant="transparent"
                 c="dimmed"
                 size="sm"
-                title="Markieren"
+                title={copied ? "Kopiert" : "Kopieren"}
+                onClick={handleCopy}
               >
-                <IconStar size={14} />
+                {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
               </ActionIcon>
-            )}
-            <ActionIcon
-              variant="transparent"
-              c="dimmed"
-              size="sm"
-              title="Kopieren"
-            >
-              <IconCopy size={14} />
-            </ActionIcon>
-            {last && (
-              <>
-                <ActionIcon
-                  variant="transparent"
-                  c="dimmed"
-                  size="sm"
-                  title="Neu generieren"
-                >
-                  <IconRefresh size={14} />
-                </ActionIcon>
-                <ActionIcon
-                  variant="transparent"
-                  c="dimmed"
-                  size="sm"
-                  title="Löschen"
-                >
-                  <IconTrash size={14} />
-                </ActionIcon>
-              </>
-            )}
-          </Group>
+              {last && (
+                <>
+                  <ActionIcon
+                    variant="transparent"
+                    c="dimmed"
+                    size="sm"
+                    title="Neu generieren"
+                    loading={regenerating}
+                    disabled={regenerating || deleting}
+                    onClick={handleRegenerate}
+                  >
+                    <IconRefresh size={14} />
+                  </ActionIcon>
+                  <ActionIcon
+                    variant="transparent"
+                    c="dimmed"
+                    size="sm"
+                    title="Löschen"
+                    loading={deleting}
+                    disabled={regenerating || deleting}
+                    onClick={handleDelete}
+                  >
+                    <IconTrash size={14} />
+                  </ActionIcon>
+                </>
+              )}
+            </Group>
+          )}
         </Group>
       </Box>
     );
@@ -217,6 +286,7 @@ export const AgentMessage = memo(
     prev.reasoningStreaming === next.reasoningStreaming &&
     prev.starred === next.starred &&
     prev.waiting === next.waiting &&
+    prev.status === next.status &&
     prev.last === next.last &&
     prev.presetName === next.presetName &&
     createdAtEpoch(prev.createdAt) === createdAtEpoch(next.createdAt),

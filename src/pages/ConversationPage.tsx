@@ -21,8 +21,17 @@ function ConversationView({ id }: { id: string }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { messages, sendMessage, streaming, loading, error, chatError } =
-    useChatV1(id);
+  const {
+    messages,
+    sendMessage,
+    streaming,
+    loading,
+    error,
+    chatError,
+    starMessage,
+    deleteMessage,
+    regenerateMessage,
+  } = useChatV1(id);
   const { data: config } = useConfig();
 
   const sentRef = useRef(false);
@@ -143,13 +152,18 @@ function ConversationView({ id }: { id: string }) {
             ) : item.message.role === "user" ? (
               <UserMessage
                 key={item.message.id}
+                id={item.message.id}
                 text={item.message.text}
                 createdAt={item.message.createdAt}
                 last={item.last}
+                status={item.message.status}
+                onDelete={deleteMessage}
+                onRegenerate={regenerateMessage}
               />
             ) : (
               <AgentMessage
                 key={item.message.id}
+                id={item.message.id}
                 text={item.message.text}
                 reasoning={item.message.reasoning}
                 stats={item.message.stats}
@@ -158,11 +172,15 @@ function ConversationView({ id }: { id: string }) {
                 last={item.last}
                 reasoningStreaming={item.message.reasoningStreaming ?? false}
                 waiting={item.message.waiting ?? false}
+                status={item.message.status}
                 presetName={
                   item.message.presetId
                     ? presetNameById.get(item.message.presetId)
                     : undefined
                 }
+                onStar={starMessage}
+                onDelete={deleteMessage}
+                onRegenerate={regenerateMessage}
               />
             ),
           )}

@@ -3,6 +3,7 @@ import { auth } from "./middleware/auth.ts";
 import { requestLogger } from "./middleware/logger.ts";
 import * as conversations from "./handlers/conversations.ts";
 import * as chat from "./handlers/chat.ts";
+import * as messages from "./handlers/messages.ts";
 import * as jobs from "./handlers/jobs.ts";
 import * as config from "./handlers/config.ts";
 import { health } from "./handlers/health.ts";
@@ -58,6 +59,11 @@ app.delete("/api/conversations/:id", auth, conversations.deleteConversation);
 
 // ── Chat ─────────────────────────────────────────────────────────────────────
 app.post("/api/chat", auth, chat.sendChat);
+
+// ── Messages ─────────────────────────────────────────────────────────────────
+app.patch("/api/messages/:id", auth, messages.updateMessage);
+app.delete("/api/messages/:id", auth, messages.deleteMessage);
+app.post("/api/messages/:id/regenerate", auth, messages.regenerateMessage);
 
 // ── Jobs ─────────────────────────────────────────────────────────────────────
 app.get("/api/jobs/:id", auth, jobs.getJob);

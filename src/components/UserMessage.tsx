@@ -1,21 +1,67 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { ActionIcon, Box, Group, Paper, Text } from "@mantine/core";
-import { IconCopy, IconRefresh, IconTrash } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconCopy,
+  IconRefresh,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useDisplaySettings } from "../context/DisplaySettingsContext.tsx";
 import { formatTime } from "../utils/formatDate.ts";
 import { useMessageActions } from "./useMessageActions.ts";
 
 export const UserMessage = memo(function UserMessage({
+  id,
   text,
   createdAt,
   last = false,
+  status,
+  onDelete,
+  onRegenerate,
 }: {
+  id: string;
   text: string;
   createdAt?: string | Date;
   last?: boolean;
+  status?: "generating" | "complete" | "error" | "cancelled";
+  onDelete: (id: string) => Promise<void>;
+  onRegenerate: (id: string) => Promise<void>;
 }) {
   const { ref, actionsStyle } = useMessageActions();
   const { settings } = useDisplaySettings();
+  const [copied, setCopied] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+
+  const busy = status === "generating";
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Ignore clipboard errors.
+    }
+  };
+
+  const handleRegenerate = async () => {
+    setRegenerating(true);
+    try {
+      await onRegenerate(id);
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await onDelete(id);
+    } finally {
+      setDeleting(false);
+    }
+  };
   return (
     <Box ref={ref}>
       <Group justify="flex-end">
@@ -37,9 +83,10 @@ export const UserMessage = memo(function UserMessage({
             variant="transparent"
             c="dimmed"
             size="sm"
-            title="Kopieren"
+            title={copied ? "Kopiert" : "Kopieren"}
+            onClick={handleCopy}
           >
-            <IconCopy size={14} />
+            {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
           </ActionIcon>
           {last && (
             <>
@@ -48,6 +95,9 @@ export const UserMessage = memo(function UserMessage({
                 c="dimmed"
                 size="sm"
                 title="Neu generieren"
+                loading={regenerating}
+                disabled={busy || regenerating || deleting}
+                onClick={handleRegenerate}
               >
                 <IconRefresh size={14} />
               </ActionIcon>
@@ -56,6 +106,9 @@ export const UserMessage = memo(function UserMessage({
                 c="dimmed"
                 size="sm"
                 title="Löschen"
+                loading={deleting}
+                disabled={busy || regenerating || deleting}
+                onClick={handleDelete}
               >
                 <IconTrash size={14} />
               </ActionIcon>

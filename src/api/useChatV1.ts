@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useConversation, fetchConversation } from "./queries.ts";
 import * as events from "./events.ts";
+import { apiDelete, apiPatch, apiPost } from "./client.ts";
 import { getApiToken } from "./token.ts";
 import type { Message, MessagePart, MessageStats } from "../../shared/types.ts";
 
@@ -20,6 +21,8 @@ export type ChatMessage = {
   // (so the input can default to it on the next render) and the assistant
   // reply (so the per-message stats line can show the preset name).
   presetId?: string;
+  // Starred marker. Persisted in the DB so it survives reloads.
+  starred?: boolean;
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -63,6 +66,7 @@ function serverMessageToChat(m: Message): ChatMessage {
     waiting: m.status === "generating" && partsToText(m.parts).length === 0,
     reasoningStreaming: false,
     presetId: m.presetId,
+    starred: m.starred,
   };
 }
 
@@ -232,6 +236,36 @@ export function useChatV1(conversationId: string) {
         );
         setStreaming(false);
       }),
+
+      events.on("chat.message-updated", (data) => {
+        const message = data.message as Message | undefined;
+        if (!message) return;
+        const chatMsg = serverMessageToChat(message);
+        setMessages((prev) => {
+          if (!prev.some((m) => m.id === chatMsg.id)) {
+            return [...prev, chatMsg];
+          }
+          return prev.map((m) => (m.id === chatMsg.id ? chatMsg : m));
+        });
+      }),
+
+      events.on("chat.message-deleted", (data) => {
+        const messageId = data.messageId as string | undefined;
+        if (!messageId) return;
+        setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      }),
+
+      events.on("chat.message-created", (data) => {
+        const message = data.message as Message | undefined;
+        if (!message) return;
+        const chatMsg = serverMessageToChat(message);
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === chatMsg.id)) {
+            return prev.map((m) => (m.id === chatMsg.id ? chatMsg : m));
+          }
+          return [...prev, chatMsg];
+        });
+      }),
     ];
 
     return () => {
@@ -340,5 +374,78 @@ export function useChatV1(conversationId: string) {
     [conversationId],
   );
 
-  return { messages, sendMessage, streaming, loading, error, chatError };
+  const starMessage = useCallback(
+    async (id: string, starred: boolean) => {
+      await apiPatch(`/messages/${id}`, { starred });
+      setMessages((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, starred } : m)),
+      );
+    },
+    [conversationId],
+  );
+
+  const deleteMessage = useCallback(
+    async (id: string) => {
+      await apiDelete(`/messages/${id}`);
+      setMessages((prev) => prev.filter((m) => m.id !== id));
+    },
+    [conversationId],
+  );
+
+  const regenerateMessage = useCallback(
+    async (id: string) => {
+      setChatError(null);
+      const { messageId } = await apiPost<{ messageId: string }>(
+        `/messages/${id}/regenerate`,
+        {},
+      );
+      setMessages((prev) => {
+        const source = prev.find((m) => m.id === id);
+        const presetId = source?.presetId;
+        const exists = prev.some((m) => m.id === messageId);
+        if (exists) {
+          return prev.map((m) =>
+            m.id === messageId
+              ? {
+                  ...m,
+                  text: "",
+                  reasoning: undefined,
+                  stats: undefined,
+                  status: "generating",
+                  waiting: true,
+                  reasoningStreaming: false,
+                  presetId: presetId ?? m.presetId,
+                }
+              : m,
+          );
+        }
+        return [
+          ...prev,
+          {
+            id: messageId,
+            role: "assistant",
+            text: "",
+            createdAt: new Date().toISOString(),
+            status: "generating",
+            waiting: true,
+            reasoningStreaming: false,
+            presetId,
+          },
+        ];
+      });
+    },
+    [conversationId],
+  );
+
+  return {
+    messages,
+    sendMessage,
+    streaming,
+    loading,
+    error,
+    chatError,
+    starMessage,
+    deleteMessage,
+    regenerateMessage,
+  };
 }

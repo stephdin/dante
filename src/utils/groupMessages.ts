@@ -10,6 +10,7 @@ export type ChatMessage = {
   reasoning?: string;
   stats?: MessageStats;
   createdAt: string | Date;
+  status?: "generating" | "complete" | "error" | "cancelled";
   starred?: boolean;
   reasoningStreaming?: boolean;
   waiting?: boolean;

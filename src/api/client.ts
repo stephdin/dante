@@ -50,6 +50,16 @@ export async function apiPut(path: string, body: unknown): Promise<void> {
   if (!res.ok) throw new ApiError(`PUT /api${path}`, res.status);
 }
 
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`/api${path}`, {
+    method: "PATCH",
+    headers: jsonHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(`PATCH /api${path}`, res.status);
+  return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+}
+
 export async function apiDelete(path: string): Promise<void> {
   const res = await fetch(`/api${path}`, {
     method: "DELETE",
