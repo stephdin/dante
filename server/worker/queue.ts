@@ -1,3 +1,5 @@
+import { log } from "../lib/log.ts";
+
 /**
  * In-memory job queue. Event-driven — no polling, no timers.
  *
@@ -12,11 +14,11 @@ const waiters: Waiter[] = [];
 
 export function push(jobId: string) {
   if (waiters.length > 0) {
-    console.log(`queue: push ${jobId} → handing to waiting worker`);
+    log.info(`queue: push ${jobId} → handing to waiting worker`);
     waiters.shift()!.resolve(jobId);
   } else {
     queue.push(jobId);
-    console.log(
+    log.info(
       `queue: push ${jobId} → queued (depth ${queue.length}, no idle workers)`,
     );
   }
@@ -25,12 +27,12 @@ export function push(jobId: string) {
 export function take(): Promise<string> {
   if (queue.length > 0) {
     const id = queue.shift()!;
-    console.log(
+    log.info(
       `queue: take ${id} → dequeued (depth ${queue.length - 1} remaining)`,
     );
     return Promise.resolve(id);
   }
-  console.log("queue: take → no jobs, worker waiting");
+  log.info("queue: take → no jobs, worker waiting");
   return new Promise((resolve) => {
     waiters.push({ resolve });
   });

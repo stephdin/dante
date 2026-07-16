@@ -1,5 +1,6 @@
 import { Database } from "@db/sqlite";
 import { MIGRATIONS, SEED_SQL } from "./schema.ts";
+import { log } from "../lib/log.ts";
 
 let db: Database | null = null;
 
@@ -8,6 +9,7 @@ export function getDb(dbPath?: string): Database {
   if (db) return db;
 
   const path = dbPath ?? Deno.env.get("DANTE_DB_PATH") ?? "dante.db";
+  log.info(`db: opening ${path}`);
   db = new Database(path);
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec("PRAGMA foreign_keys = ON;");
@@ -36,13 +38,14 @@ function runMigrations(theDb: Database) {
         .prepare("INSERT INTO _migrations (version) VALUES (?)")
         .run(m.version);
     })();
-    console.log(`db: migration v${m.version} applied`);
+    log.info(`db: migration v${m.version} applied`);
   }
 }
 
 /** Close the database. Safe to call multiple times. */
 export function closeDb() {
   if (db) {
+    log.info("db: closing");
     try {
       db.close();
     } catch {

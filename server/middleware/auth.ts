@@ -1,4 +1,5 @@
 import type { Context, Next } from "hono";
+import { log } from "../lib/log.ts";
 
 /**
  * Bearer token auth middleware.
@@ -15,8 +16,14 @@ export async function auth(c: Context, next: Next) {
   const header = c.req.header("Authorization") ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
   if (token !== expected) {
+    log.warn(`auth: unauthorized request to ${c.req.method} ${c.req.path}`);
     return c.json(
-      { error: { code: "unauthorized", message: "invalid or missing bearer token" } },
+      {
+        error: {
+          code: "unauthorized",
+          message: "invalid or missing bearer token",
+        },
+      },
       401,
     );
   }

@@ -2,10 +2,11 @@ import { getDb } from "../db/db.ts";
 import { getConfig } from "../db/config.ts";
 import type { JobRow, MessageRow } from "../db/rows.ts";
 import { push, take } from "./queue.ts";
-import { isExhausted, scheduleRetry, backoffDelay } from "./retry.ts";
+import { backoffDelay, isExhausted, scheduleRetry } from "./retry.ts";
 import { broadcast } from "../events/broadcaster.ts";
 import { streamChat } from "../model/client.ts";
 import type { Config, Message, MessagePart } from "../../shared/types.ts";
+import { log } from "../lib/log.ts";
 
 // ── Startup ──────────────────────────────────────────────────────────────────
 
@@ -30,18 +31,16 @@ function scanAndEnqueue() {
       error_message: string | null;
     }>();
   if (all.length > 0) {
-    console.log(
-      `worker: scan found ${all.length} non-terminal job(s) at ${now}:`,
-    );
+    log.info(`worker: scan found ${all.length} non-terminal job(s) at ${now}:`);
     for (const j of all) {
       const due = j.next_retry_at ? j.next_retry_at <= now : "n/a";
-      console.log(
+      log.info(
         `  ${j.id}  status=${j.status}  retry=${j.retry_count}  next_retry_at=${j.next_retry_at}  due=${due}` +
           (j.error_message ? `  err="${j.error_message}"` : ""),
       );
     }
   } else {
-    console.log("worker: scan found no non-terminal jobs");
+    log.info("worker: scan found no non-terminal jobs");
   }
 
   // The actual enqueue query — only due jobs.
@@ -57,24 +56,26 @@ function scanAndEnqueue() {
     push(row.id);
   }
 
-  console.log(
-    `worker: enqueued ${rows.length} job(s) (${all.length - rows.length} not yet due)`,
+  log.info(
+    `worker: enqueued ${rows.length} job(s) (${
+      all.length - rows.length
+    } not yet due)`,
   );
 }
 
 // ── Main loop ────────────────────────────────────────────────────────────────
 
 export function start() {
-  console.log("worker: starting");
+  log.info("worker: starting");
   scanAndEnqueue();
   loop();
 }
 
 async function loop() {
-  console.log("worker: loop running, waiting for jobs");
+  log.info("worker: loop running, waiting for jobs");
   while (true) {
     const jobId = await take();
-    console.log(`worker: processing job ${jobId}`);
+    log.info(`worker: processing job ${jobId}`);
     await processJob(jobId);
   }
 }
@@ -91,14 +92,14 @@ async function processJob(jobId: string) {
     .prepare("SELECT * FROM generation_jobs WHERE id = ?")
     .get<JobRow>(jobId);
   if (!job) {
-    console.log(`worker: job ${jobId} not found in DB, skipping`);
+    log.warn(`worker: job ${jobId} not found in DB, skipping`);
     return;
   }
   if (job.status === "cancelled" || job.status === "dead") {
-    console.log(`worker: job ${jobId} is ${job.status}, skipping`);
+    log.warn(`worker: job ${jobId} is ${job.status}, skipping`);
     return;
   }
-  console.log(
+  log.info(
     `worker: job ${jobId} status=${job.status} retry=${job.retry_count}/${job.max_retries} preset=${job.preset_id}`,
   );
 
@@ -133,14 +134,14 @@ async function processJob(jobId: string) {
       throw new Error(`model "${preset.modelId}" not found in any provider`);
     }
 
-    console.log(
+    log.info(
       `worker: job ${jobId} → provider=${provider.id} model=${preset.modelId} sdk=${model.type}`,
     );
 
     // Resolve API key
     const apiKey =
       Deno.env.get(`MODEL_PROVIDER_API_KEY_${provider.id.toUpperCase()}`) ??
-      Deno.env.get("MODEL_PROVIDER_API_KEY");
+        Deno.env.get("MODEL_PROVIDER_API_KEY");
     if (!apiKey) {
       throw new Error(
         `no API key for provider "${provider.id}" (set MODEL_PROVIDER_API_KEY_${provider.id.toUpperCase()} or MODEL_PROVIDER_API_KEY)`,
@@ -193,7 +194,10 @@ async function processJob(jobId: string) {
       const current = db
         .prepare("SELECT status FROM generation_jobs WHERE id = ?")
         .get<{ status: string }>(job.id);
-      if (!current || current.status === "cancelled") return;
+      if (!current || current.status === "cancelled") {
+        log.info(`worker: job ${jobId} cancelled mid-stream, stopping`);
+        return;
+      }
 
       if (firstOutputMs === null) firstOutputMs = Date.now();
       if (part.type === "reasoning") {
@@ -236,16 +240,15 @@ async function processJob(jobId: string) {
     }
 
     const responseTimeMs = streamEndMs - streamStartMs;
-    const reasoningTimeMs =
-      reasoningStartMs !== null && reasoningEndMs !== null
-        ? reasoningEndMs - reasoningStartMs
-        : undefined;
-    const timeToFirstOutputMs =
-      firstOutputMs !== null ? firstOutputMs - streamStartMs : undefined;
-    const outputTokensPerSecond =
-      tokUsage.outputTokens && responseTimeMs > 0
-        ? tokUsage.outputTokens / (responseTimeMs / 1000)
-        : undefined;
+    const reasoningTimeMs = reasoningStartMs !== null && reasoningEndMs !== null
+      ? reasoningEndMs - reasoningStartMs
+      : undefined;
+    const timeToFirstOutputMs = firstOutputMs !== null
+      ? firstOutputMs - streamStartMs
+      : undefined;
+    const outputTokensPerSecond = tokUsage.outputTokens && responseTimeMs > 0
+      ? tokUsage.outputTokens / (responseTimeMs / 1000)
+      : undefined;
 
     const stats = {
       provider: provider.name,
@@ -281,18 +284,20 @@ async function processJob(jobId: string) {
       status: "completed",
     });
 
-    console.log(
-      `worker: job ${job.id} completed (${parts.length} parts, ${tokUsage.totalTokens ?? "?"} tokens)`,
+    log.info(
+      `worker: job ${job.id} completed (${parts.length} parts, ${
+        tokUsage.totalTokens ?? "?"
+      } tokens)`,
     );
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error(`worker: job ${jobId} failed: ${errorMessage}`);
+    log.error(`worker: job ${jobId} failed: ${errorMessage}`);
 
     const retryCount = job.retry_count + 1;
     const exhausted = isExhausted(retryCount, job.max_retries);
 
     if (exhausted) {
-      console.log(
+      log.error(
         `worker: job ${jobId} → DEAD (retries exhausted: ${retryCount}/${job.max_retries})`,
       );
       db.transaction(() => {
@@ -333,8 +338,10 @@ async function processJob(jobId: string) {
         jobId,
         status: "failed",
       });
-      console.log(
-        `worker: job ${jobId} → FAILED, will retry #${retryCount}/${job.max_retries} at ${nextRetryAt} (in ${Math.round(backoffDelay(retryCount) / 1000)}s)`,
+      log.warn(
+        `worker: job ${jobId} → FAILED, will retry #${retryCount}/${job.max_retries} at ${nextRetryAt} (in ${
+          Math.round(backoffDelay(retryCount) / 1000)
+        }s)`,
       );
       scheduleRetry(jobId, retryCount, push);
     }

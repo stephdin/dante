@@ -4,6 +4,7 @@ import { broadcast } from "../events/broadcaster.ts";
 import type { JobRow } from "../db/rows.ts";
 import { rowToJob } from "../db/rows.ts";
 import { notFound } from "./_http.ts";
+import { log } from "../lib/log.ts";
 
 type CancelResult =
   | { ok: true }
@@ -20,6 +21,7 @@ export function cancelJobById(jobId: string): CancelResult {
     .prepare("SELECT * FROM generation_jobs WHERE id = ?")
     .get<JobRow>(jobId);
   if (!job) {
+    log.warn(`job: cancel ${jobId} failed — not found`);
     return {
       ok: false,
       status: 404,
@@ -33,6 +35,7 @@ export function cancelJobById(jobId: string): CancelResult {
     job.status !== "running" &&
     job.status !== "failed"
   ) {
+    log.warn(`job: cancel ${jobId} failed — already ${job.status}`);
     return {
       ok: false,
       status: 409,
@@ -62,6 +65,7 @@ export function cancelJobById(jobId: string): CancelResult {
     status: "cancelled",
   });
 
+  log.info(`job: ${jobId} cancelled`);
   return { ok: true };
 }
 

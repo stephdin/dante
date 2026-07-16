@@ -4,8 +4,9 @@ import { getConfig } from "../db/config.ts";
 import { push } from "../worker/queue.ts";
 import { MAX_RETRIES } from "../worker/retry.ts";
 import { broadcast } from "../events/broadcaster.ts";
-import { notFound, badRequest } from "./_http.ts";
+import { badRequest, notFound } from "./_http.ts";
 import type { MessagePart } from "../../shared/types.ts";
+import { log } from "../lib/log.ts";
 
 export async function sendChat(c: Context) {
   const db = getDb();
@@ -120,6 +121,9 @@ export async function sendChat(c: Context) {
   });
 
   // Trigger the worker
+  log.info(
+    `chat: new job ${jobId} for conversation ${conversationId} (preset ${presetId})`,
+  );
   push(jobId);
 
   return c.json({ jobId, messageId: assistantMessageId, userMessageId });

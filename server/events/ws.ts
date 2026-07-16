@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { subscribe, unsubscribe, unsubscribeAll } from "./broadcaster.ts";
 import { cancelJobById } from "../handlers/jobs.ts";
+import { log } from "../lib/log.ts";
 
 /**
  * GET /api/events?token=<...>
@@ -25,7 +26,7 @@ export function events(c: Context) {
   const { socket, response } = Deno.upgradeWebSocket(c.req.raw);
 
   socket.onopen = () => {
-    console.log("ws: client connected");
+    log.info("ws: client connected");
   };
 
   socket.onmessage = (ev) => {
@@ -33,29 +34,40 @@ export function events(c: Context) {
     try {
       msg = JSON.parse(ev.data as string);
     } catch {
+      log.warn("ws: malformed message received");
       return; // ignore malformed messages
     }
 
     switch (msg.type) {
       case "subscribe": {
         if (msg.conversationId) {
-          console.log(`ws: client subscribed to ${msg.conversationId}`);
+          log.info(`ws: client subscribed to ${msg.conversationId}`);
           subscribe(msg.conversationId, socket);
         }
         break;
       }
       case "unsubscribe": {
-        if (msg.conversationId) unsubscribe(msg.conversationId, socket);
+        if (msg.conversationId) {
+          log.info(`ws: client unsubscribed from ${msg.conversationId}`);
+          unsubscribe(msg.conversationId, socket);
+        }
         break;
       }
       case "cancel": {
-        if (msg.jobId) cancelJobById(msg.jobId);
+        if (msg.jobId) {
+          log.info(`ws: client requested cancel for job ${msg.jobId}`);
+          cancelJobById(msg.jobId);
+        }
         break;
+      }
+      default: {
+        log.warn(`ws: unknown message type "${msg.type ?? "<none>"}"`);
       }
     }
   };
 
   socket.onclose = () => {
+    log.info("ws: client disconnected");
     unsubscribeAll(socket);
   };
 

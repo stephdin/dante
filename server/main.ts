@@ -1,27 +1,29 @@
 import { Hono } from "hono";
 import { auth } from "./middleware/auth.ts";
-import { logger } from "./middleware/logger.ts";
+import { requestLogger } from "./middleware/logger.ts";
 import * as conversations from "./handlers/conversations.ts";
 import * as chat from "./handlers/chat.ts";
 import * as jobs from "./handlers/jobs.ts";
 import * as config from "./handlers/config.ts";
 import { health } from "./handlers/health.ts";
-import { getDb, closeDb } from "./db/db.ts";
+import { closeDb, getDb } from "./db/db.ts";
 import { start as startWorker } from "./worker/runner.ts";
 import { events } from "./events/ws.ts";
+import { log } from "./lib/log.ts";
 
 // ── Database ──────────────────────────────────────────────────────────────────
 getDb();
-console.log("db: sqlite ready");
+log.info("db: sqlite ready");
 
 // ── Worker ────────────────────────────────────────────────────────────────────
 startWorker();
-console.log("worker: started");
+log.info("worker: started");
 
 // Graceful shutdown — close DB on SIGINT / SIGTERM.
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   try {
     Deno.addSignalListener(signal, () => {
+      log.info(`server: received ${signal}, shutting down`);
       closeDb();
       Deno.exit(0);
     });
@@ -34,7 +36,7 @@ const app = new Hono();
 
 // ── Error handling ───────────────────────────────────────────────────────────
 app.onError((err, c) => {
-  console.error("unexpected error:", err);
+  log.error("unexpected error:", err);
   return c.json(
     { error: { code: "internal_error", message: "internal server error" } },
     500,
@@ -42,7 +44,7 @@ app.onError((err, c) => {
 });
 
 // ── Request logging ───────────────────────────────────────────────────────
-app.use("/api/*", logger);
+app.use("/api/*", requestLogger);
 
 // ── Health (no auth) ─────────────────────────────────────────────────────────
 app.get("/api/health", health);
@@ -73,5 +75,5 @@ app.get("/", (c) => c.text("Hello from Dante!"));
 
 // ── Start ────────────────────────────────────────────────────────────────────
 const port = Number(Deno.env.get("PORT") ?? 3000);
-console.log(`Dante server listening on http://localhost:${port}`);
+log.info(`Dante server listening on http://localhost:${port}`);
 Deno.serve({ port }, app.fetch);
