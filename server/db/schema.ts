@@ -58,11 +58,20 @@ export const MIGRATIONS: { version: number; sql: string }[] = [
 
       CREATE TABLE IF NOT EXISTS mcp_status (
         mcp_id TEXT PRIMARY KEY,
-        status TEXT NOT NULL DEFAULT 'disconnected'
-          CHECK (status IN ('connected', 'disconnected')),
+        status TEXT NOT NULL DEFAULT 'disconnected',
         last_error TEXT,
         updated_at TEXT NOT NULL
       );
+    `,
+  },
+  {
+    // v2: remember which preset generated each message so the input can default
+    // to the last-used preset on reload, and so statistics can show "which
+    // model made this reply". Nullable on purpose: user messages predating
+    // this migration have no preset, and the client treats it as optional.
+    version: 2,
+    sql: `
+      ALTER TABLE messages ADD COLUMN preset_id TEXT;
     `,
   },
 ];

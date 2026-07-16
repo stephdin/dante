@@ -52,6 +52,11 @@ export type Message = {
   stats?: MessageStats;
   status: "generating" | "complete" | "error" | "cancelled";
   createdAt: string; // ISO 8601
+  // Preset used for this message. Set on both user and assistant rows at chat
+  // time; absent on legacy rows created before the v2 migration. Drives the
+  // "remember last preset" behaviour in the input and the per-message label in
+  // statistics.
+  presetId?: string;
 };
 
 // ── Conversation ─────────────────────────────────────────────────────────────

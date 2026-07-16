@@ -16,6 +16,10 @@ export type ChatMessage = {
   status: "generating" | "complete" | "error";
   waiting: boolean;
   reasoningStreaming: boolean;
+  // Preset the user picked for this turn. Carried on both the user message
+  // (so the input can default to it on the next render) and the assistant
+  // reply (so the per-message stats line can show the preset name).
+  presetId?: string;
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -58,6 +62,7 @@ function serverMessageToChat(m: Message): ChatMessage {
     status: m.status as "generating" | "complete" | "error",
     waiting: m.status === "generating" && partsToText(m.parts).length === 0,
     reasoningStreaming: false,
+    presetId: m.presetId,
   };
 }
 
@@ -112,6 +117,7 @@ export function useChatV1(conversationId: string) {
               status: "complete",
               waiting: false,
               reasoningStreaming: false,
+              presetId: data.presetId as string | undefined,
             },
           ];
         });
@@ -271,6 +277,7 @@ export function useChatV1(conversationId: string) {
         status: "complete",
         waiting: false,
         reasoningStreaming: false,
+        presetId,
       };
       const assistantMsg: ChatMessage = {
         id: tempId + "-asst",
@@ -280,6 +287,7 @@ export function useChatV1(conversationId: string) {
         status: "generating",
         waiting: true,
         reasoningStreaming: false,
+        presetId,
       };
 
       setMessages((prev) => [...prev, userMsg, assistantMsg]);

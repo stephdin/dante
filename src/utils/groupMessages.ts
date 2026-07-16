@@ -13,6 +13,10 @@ export type ChatMessage = {
   starred?: boolean;
   reasoningStreaming?: boolean;
   waiting?: boolean;
+  // Preset the user picked for this turn. Surfaced so the per-message stats
+  // line can label which model produced the reply, and so the conversation
+  // page can pick the latest one as the input default on reload.
+  presetId?: string;
 };
 
 export type ChatItem =

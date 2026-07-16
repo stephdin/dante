@@ -16,8 +16,15 @@ export const ChatLayout = forwardRef<
     onSend?: (text: string, presetId: string | undefined) => void;
     onStop?: () => void;
     busy?: boolean;
+    // Preset to pre-select in the input. The conversation page passes the
+    // latest used presetId so reloads keep the user's choice. New-conversation
+    // pages leave it unset → input falls back to the config default.
+    defaultPresetId?: string | null;
   }
->(function ChatLayout({ children, centered, onSend, onStop, busy }, ref) {
+>(function ChatLayout(
+  { children, centered, onSend, onStop, busy, defaultPresetId },
+  ref,
+) {
   return (
     <Box
       style={{
@@ -72,7 +79,12 @@ export const ChatLayout = forwardRef<
         }}
       >
         <Box p="md" style={{ pointerEvents: "auto" }}>
-          <ChatInput onSend={onSend} onStop={onStop} busy={busy} />
+          <ChatInput
+            onSend={onSend}
+            onStop={onStop}
+            busy={busy}
+            defaultPresetId={defaultPresetId}
+          />
         </Box>
       </Box>
     </Box>

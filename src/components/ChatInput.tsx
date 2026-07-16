@@ -20,17 +20,29 @@ export function ChatInput({
   onSend,
   onStop,
   busy,
+  defaultPresetId,
 }: {
   onSend?: (text: string, presetId: string | undefined) => void;
   onStop?: () => void;
   busy?: boolean;
+  // Preset to pre-select when the input mounts. The parent (conversation page)
+  // passes the most-recently-used presetId for the conversation, so refreshing
+  // the page keeps the user's selection. null/undefined → fall back to the
+  // config default, then the first available preset (existing behaviour).
+  defaultPresetId?: string | null;
 }) {
   const { data: config } = useConfig();
   const presets = config?.presets ?? [];
   const hasProviders = (config?.providers.length ?? 0) > 0;
   const hasAssistants = (config?.assistants.length ?? 0) > 0;
   const [value, setValue] = useState("");
-  const [presetId, setPresetId] = useState<string | null>(null);
+  // Local override of the preset selection. null = no manual choice, so we
+  // fall through to defaultPresetId (the last-used preset, supplied by the
+  // parent) and then the config default. Splitting override from derived
+  // default means no effect is needed to sync them: when defaultPresetId
+  // arrives after the messages fetch, the displayed preset just updates on
+  // re-render, and a manual pick is never clobbered by the re-asserting prop.
+  const [overridePresetId, setOverridePresetId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   // Show a nudge when no presets exist — the app can't chat without them.
@@ -66,9 +78,10 @@ export function ChatInput({
     );
   }
 
-  // Fall back to the default preset, then to the first available one.
+  // Manual pick > last-used preset from parent > config default > first.
   const preset =
-    presets.find((p) => p.id === presetId) ??
+    presets.find((p) => p.id === overridePresetId) ??
+    presets.find((p) => p.id === defaultPresetId) ??
     presets.find((p) => p.default) ??
     presets[0];
   const CurrentIcon = preset
@@ -128,7 +141,7 @@ export function ChatInput({
                       rightSection={
                         p.id === preset?.id ? <IconCheck size={14} /> : null
                       }
-                      onClick={() => setPresetId(p.id)}
+                      onClick={() => setOverridePresetId(p.id)}
                     >
                       {p.name}
                     </Menu.Item>

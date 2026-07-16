@@ -9,6 +9,11 @@ import {
 type DisplaySettings = {
   showProviderStats: boolean;
   showTimestamps: boolean;
+  // Whether the reasoning block in assistant messages starts expanded when
+  // a message mounts. Acts as an initial value only — users can still
+  // collapse individual blocks, and toggling the setting doesn't retroactively
+  // open/close already-rendered messages.
+  expandReasoningByDefault: boolean;
 };
 
 type DisplaySettingsContextType = {
@@ -22,6 +27,7 @@ type DisplaySettingsContextType = {
 const defaultSettings: DisplaySettings = {
   showProviderStats: false,
   showTimestamps: false,
+  expandReasoningByDefault: false,
 };
 
 const STORAGE_KEY = "dante-display-settings";

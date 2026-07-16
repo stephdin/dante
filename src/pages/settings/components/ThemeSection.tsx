@@ -105,6 +105,18 @@ export function ThemeSection() {
           }
         />
       </SettingRow>
+      <Space h="sm" />
+      <SettingRow
+        label="Reasoning aufklappen"
+        description="Zeige den Reasoning-Block in Antworten standardmäßig geöffnet"
+      >
+        <Switch
+          checked={settings.expandReasoningByDefault}
+          onChange={(e) =>
+            updateSetting("expandReasoningByDefault", e.currentTarget.checked)
+          }
+        />
+      </SettingRow>
     </Stack>
   );
 }

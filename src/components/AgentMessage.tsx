@@ -36,6 +36,10 @@ type AgentMessageProps = {
   reasoningStreaming?: boolean;
   starred?: boolean;
   waiting?: boolean;
+  // Display name of the preset that produced this message. Resolved by the
+  // parent from the message's presetId + the config. undefined = no preset
+  // info available (e.g. messages from before the migration).
+  presetName?: string;
 };
 
 export const AgentMessage = memo(
@@ -48,10 +52,17 @@ export const AgentMessage = memo(
     reasoningStreaming = false,
     starred = false,
     waiting = false,
+    presetName,
   }: AgentMessageProps) {
     const { ref, actionsStyle } = useMessageActions();
     const { settings } = useDisplaySettings();
-    const [reasoningOpen, setReasoningOpen] = useState(false);
+    // Initial state only: the setting controls whether the block starts
+    // expanded when the message mounts. The user can still toggle it per
+    // message, and changing the setting doesn't retroactively affect
+    // already-rendered messages.
+    const [reasoningOpen, setReasoningOpen] = useState(
+      () => settings.expandReasoningByDefault,
+    );
     const hasReasoning = !!reasoning && reasoning.trim().length > 0;
 
     // Track reasoning duration client-side so we can show it immediately
@@ -129,12 +140,15 @@ export const AgentMessage = memo(
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
           </Typography>
           {/* Debug overlay: per-message provider stats. Shown as a single
-            compact line under the message content. */}
-          {(settings.showProviderStats || DEBUG_MESSAGE_STATS) && stats && (
-            <Text size="xs" c="dimmed" mt="xs">
-              {formatMessageStats(stats)}
-            </Text>
-          )}
+            compact line under the message content. The preset name is shown
+            even when no other stats are available, so users can see at a
+            glance which model produced the reply. */}
+          {(settings.showProviderStats || DEBUG_MESSAGE_STATS) &&
+            (stats || presetName) && (
+              <Text size="xs" c="dimmed" mt="xs">
+                {formatMessageStats(stats ?? ({} as MessageStats), presetName)}
+              </Text>
+            )}
         </Paper>
         <Group justify="flex-start" align="center" gap={4} mt="xs">
           {settings.showTimestamps && createdAt && (
@@ -204,6 +218,7 @@ export const AgentMessage = memo(
     prev.starred === next.starred &&
     prev.waiting === next.waiting &&
     prev.last === next.last &&
+    prev.presetName === next.presetName &&
     createdAtEpoch(prev.createdAt) === createdAtEpoch(next.createdAt),
 );
 
@@ -219,14 +234,23 @@ function createdAtEpoch(v?: string | Date): number {
 // Compact single-line summary of provider/token/performance metadata shown
 // under each assistant message. Empty groups are omitted so the line stays
 // as terse as possible.
-function formatMessageStats(stats: MessageStats): string {
+function formatMessageStats(stats: MessageStats, presetName?: string): string {
   const groups: string[] = [];
 
-  // Identity: "OpenCode Go / glm-5.2 · stop"
+  // Identity: "Preset "Quick GPT" · openai / gpt-4-mini"
+  // The preset name is the user-facing label, so it goes first. We only show
+  // it when present — legacy messages from before the migration won't have it.
+  // finishReason is appended only when abnormal (see below).
   const identity: string[] = [];
+  if (presetName) identity.push(presetName);
   const model = [stats.provider, stats.modelId].filter(Boolean).join(" / ");
   if (model) identity.push(model);
-  if (stats.finishReason) identity.push(stats.finishReason);
+  // Only surface finishReason when it's abnormal. "stop" is the normal
+  // end-of-completion value and adds no information; "length" (truncated by
+  // max_tokens), "content-filter", etc. are worth showing so the user knows
+  // the reply was cut short.
+  if (stats.finishReason && stats.finishReason !== "stop")
+    identity.push(stats.finishReason);
   if (identity.length) groups.push(identity.join(" · "));
 
   // Token usage: "tokens 1.4k in · 487 out · 89 reasoning · 1.9k total"
@@ -268,7 +292,7 @@ function formatMessageStats(stats: MessageStats): string {
     if (perfParts.length) groups.push(`${perfParts.join(" · ")}`);
   }
 
-  return groups.join("  |  ");
+  return groups.join(" · ");
 }
 
 // Compactify token counts: 1234 → "1.2k", 1_500_000 → "1.5M". Falls back to

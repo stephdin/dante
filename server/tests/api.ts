@@ -211,6 +211,55 @@ console.log("\nChat");
   assert(msgs?.length === 2, "conversation has 2 messages");
   assert(msgs?.[0]?.role === "user", "first message is user");
   assert(msgs?.[1]?.role === "assistant", "second message is assistant");
+  // presetId is persisted per-message so the input can default to the
+  // last-used preset on reload and statistics can label which model made
+  // which reply.
+  assert(msgs?.[0]?.presetId === "default", "user message carries presetId");
+  assert(
+    msgs?.[1]?.presetId === "default",
+    "assistant message carries presetId",
+  );
+
+  // Explicit presetId override should be respected end-to-end.
+  const conv2 = await req("POST", "/api/conversations", TOKEN, {});
+  const conv2Id = (conv2.body as Record<string, unknown>).id as string;
+  // Add a second preset to the config so the override has something to point to.
+  // `default` is required (exactly one preset must be default), so the new
+  // preset explicitly opts out.
+  await req("PUT", "/api/config", TOKEN, {
+    ...chatConfig,
+    presets: [
+      ...chatConfig.presets,
+      {
+        id: "alt",
+        name: "Alt",
+        iconId: "star",
+        modelId: "test-model",
+        assistantId: "default",
+        mcpIds: [],
+        default: false,
+      },
+    ],
+  });
+  const r2b = await req("POST", "/api/chat", TOKEN, {
+    conversationId: conv2Id,
+    text: "Hello alt",
+    presetId: "alt",
+  });
+  assert(r2b.status === 200, "POST /api/chat with explicit presetId → 200");
+  await new Promise((r) => setTimeout(r, 200));
+  const r2c = await req("GET", `/api/conversations/${conv2Id}`, TOKEN);
+  const altMsgs = (r2c.body as Record<string, unknown>).messages as Array<
+    Record<string, unknown>
+  >;
+  assert(
+    altMsgs?.[0]?.presetId === "alt",
+    "explicit presetId persisted on user message",
+  );
+  assert(
+    altMsgs?.[1]?.presetId === "alt",
+    "explicit presetId persisted on assistant message",
+  );
 
   // Error cases
   const r3 = await req("POST", "/api/chat", TOKEN, { text: "hi" });

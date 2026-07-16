@@ -56,9 +56,15 @@ export async function sendChat(c: Context) {
   db.transaction(() => {
     // Persist user message
     db.prepare(
-      `INSERT INTO messages (id, conversation_id, role, parts, status, created_at)
-       VALUES (?, ?, 'user', ?, 'complete', ?)`,
-    ).run(userMessageId, conversationId, JSON.stringify(userParts), timestamp);
+      `INSERT INTO messages (id, conversation_id, role, parts, status, created_at, preset_id)
+       VALUES (?, ?, 'user', ?, 'complete', ?, ?)`,
+    ).run(
+      userMessageId,
+      conversationId,
+      JSON.stringify(userParts),
+      timestamp,
+      presetId,
+    );
 
     // Auto-label: use first user message as label if it's still the default
     if (conv.label === "New conversation") {
@@ -71,9 +77,15 @@ export async function sendChat(c: Context) {
 
     // Create assistant message row (spinner state)
     db.prepare(
-      `INSERT INTO messages (id, conversation_id, role, parts, status, created_at)
-       VALUES (?, ?, 'assistant', ?, 'generating', ?)`,
-    ).run(assistantMessageId, conversationId, JSON.stringify([]), timestamp);
+      `INSERT INTO messages (id, conversation_id, role, parts, status, created_at, preset_id)
+       VALUES (?, ?, 'assistant', ?, 'generating', ?, ?)`,
+    ).run(
+      assistantMessageId,
+      conversationId,
+      JSON.stringify([]),
+      timestamp,
+      presetId,
+    );
 
     // Bump conversation updated_at
     db.prepare("UPDATE conversations SET updated_at = ? WHERE id = ?").run(
@@ -104,6 +116,7 @@ export async function sendChat(c: Context) {
     messageId: userMessageId,
     parts: userParts,
     createdAt: timestamp,
+    presetId,
   });
 
   // Trigger the worker
