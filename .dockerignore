@@ -1,0 +1,45 @@
+# Dependencies — installed during build
+node_modules
+
+# Build output — generated during build
+dist
+
+# Git
+.git
+.gitmodules
+
+# Environment files (contain API keys)
+.env
+server/.env
+
+# SQLite databases
+*.db
+*.db-wal
+*.db-shm
+
+# Logs
+logs
+*.log
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Documentation & assets not needed at build time
+README.md
+LICENSE
+screenshot.png
+example-configs
+
+# Test files (not needed in production)
+server/tests
+
+# Lint config (not needed in production)
+.oxlintrc.json
