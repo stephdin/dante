@@ -15,6 +15,7 @@ FROM denoland/deno:alpine
 WORKDIR /app
 COPY --from=builder /build/dist ./dist
 COPY server/ ./server/
+COPY shared/ ./shared/
 ENV PORT=8001
 EXPOSE 8001
 CMD ["deno", "run", "--allow-net", "--allow-read", "--allow-write", "--allow-env", "--allow-ffi", "--allow-sys", "server/main.ts"]
