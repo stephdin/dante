@@ -11,7 +11,7 @@ COPY public/ public/
 RUN pnpm build
 
 # Stage 2 — Deno runtime
-FROM denoland/deno:2
+FROM denoland/deno:latest
 WORKDIR /app
 COPY --from=builder /build/dist ./dist
 COPY server/ ./server/
