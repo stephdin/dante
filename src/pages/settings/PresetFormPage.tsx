@@ -23,7 +23,7 @@ import { presetSchema } from "@shared/schemas/config.ts";
 import { PRESET_ICONS, presetIcon } from "../../config/presetIcons.ts";
 import { useSettingsFormContext } from "./hooks.ts";
 import { saveConfig } from "../../api/queries.ts";
-import type { Config, Preset } from "../../shared/types.ts";
+import type { Config, Preset } from "@shared/types.ts";
 
 const createSchema = presetSchema.omit({ id: true });
 
@@ -138,7 +138,7 @@ export default function PresetFormPage() {
         newConfig.presets.push(preset);
       } else {
         const preset = presetSchema.parse(values) as Preset;
-        const idx = newConfig.presets.findIndex((p) => p.id === id);
+        const idx = newConfig.presets.findIndex((p: Preset) => p.id === id);
         if (idx >= 0) newConfig.presets[idx] = preset;
       }
 
@@ -158,7 +158,7 @@ export default function PresetFormPage() {
     setDeleteError(null);
     try {
       const newConfig: Config = structuredClone(config!);
-      newConfig.presets = newConfig.presets.filter((p) => p.id !== id);
+      newConfig.presets = newConfig.presets.filter((p: Preset) => p.id !== id);
       await saveConfig(newConfig);
       navigate("/settings");
     } catch (err) {

@@ -15,37 +15,31 @@ import {
 } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
 
-import { mcpSchema } from "@shared/schemas/config.ts";
+import { mcpObjectSchema } from "@shared/schemas/config.ts";
 import { useSettingsFormContext } from "./hooks.ts";
-import { createMcp, deleteMcp, updateMcp } from "../../api/config.ts";
-import { ApiError } from "../../api/client.ts";
-import type { Mcp } from "@shared/types.ts";
+import { saveConfig } from "../../api/queries.ts";
+import type { Config, Mcp } from "@shared/types.ts";
 
-const createSchema = mcpSchema.omit({ id: true });
+const createSchema = mcpObjectSchema.omit({ id: true });
 
 export default function McpFormPage() {
-  const { id, isNew, entity, loading, error, notFound } =
-    useSettingsFormContext<McpConnection>("mcps");
+  const { id, isNew, entity, config, loading, error, notFound } =
+    useSettingsFormContext<Mcp>("mcps");
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const form = useForm({
     initialValues: isNew
-      ? {
-          id: "",
-          name: "",
-          transport: "stdio",
-          status: "disconnected" as const,
-        }
+      ? { id: "", name: "", transport: "stdio" as const }
       : {
           id: entity?.id ?? "",
           name: entity?.name ?? "",
-          transport: entity?.transport ?? "",
-          status: entity?.status ?? ("disconnected" as const),
+          transport: entity?.transport ?? ("stdio" as const),
         },
-    validate: zodResolver(isNew ? createSchema : mcpConnectionSchema),
+    validate: zodResolver(isNew ? createSchema : mcpObjectSchema),
   });
 
   if (loading) {
@@ -90,25 +84,28 @@ export default function McpFormPage() {
 
   const handleSubmit = form.onSubmit(async (values) => {
     setSubmitting(true);
+    setSaveError(null);
     try {
+      const newConfig: Config = structuredClone(config!);
+
       if (isNew) {
-        const body = createSchema.parse(values);
-        const created = await createMcp(body);
-        navigate(`/settings/mcps/${created.id}`);
+        const mcp: Mcp = {
+          ...createSchema.parse(values),
+          id: crypto.randomUUID(),
+        } as Mcp;
+        newConfig.mcps.push(mcp);
       } else {
-        const body = mcpConnectionSchema.parse(values);
-        await updateMcp(id, body);
-        navigate("/settings");
+        const mcp = mcpObjectSchema.parse(values) as Mcp;
+        const idx = newConfig.mcps.findIndex((m: Mcp) => m.id === id);
+        if (idx >= 0) newConfig.mcps[idx] = mcp;
       }
+
+      await saveConfig(newConfig);
+      navigate("/settings");
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        form.setFieldError("name", "Diese Verbindung wird noch verwendet.");
-      } else {
-        form.setFieldError(
-          "name",
-          "Speichern fehlgeschlagen. Bitte erneut versuchen.",
-        );
-      }
+      setSaveError(
+        err instanceof Error ? err.message : "Speichern fehlgeschlagen.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -118,14 +115,14 @@ export default function McpFormPage() {
     setSubmitting(true);
     setDeleteError(null);
     try {
-      await deleteMcp(id);
+      const newConfig: Config = structuredClone(config!);
+      newConfig.mcps = newConfig.mcps.filter((m: Mcp) => m.id !== id);
+      await saveConfig(newConfig);
       navigate("/settings");
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        setDeleteError("Kann nicht gelöscht werden — wird noch verwendet.");
-      } else {
-        setDeleteError("Löschen fehlgeschlagen. Bitte erneut versuchen.");
-      }
+      setDeleteError(
+        err instanceof Error ? err.message : "Löschen fehlgeschlagen.",
+      );
     } finally {
       setSubmitting(false);
       setDeleteOpen(false);
@@ -153,6 +150,12 @@ export default function McpFormPage() {
             </Title>
           </Group>
 
+          {saveError && (
+            <Text size="sm" c="red">
+              {saveError}
+            </Text>
+          )}
+
           <TextInput
             label="Name"
             placeholder="z.B. Filesystem"
@@ -165,15 +168,6 @@ export default function McpFormPage() {
             withAsterisk
             {...form.getInputProps("transport")}
           />
-
-          {!isNew && (
-            <TextInput
-              label="Status"
-              value={form.values.status}
-              disabled
-              description="Der Status wird automatisch vom Server verwaltet."
-            />
-          )}
 
           <Group justify="space-between" mt="sm">
             <Group>

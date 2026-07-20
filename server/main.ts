@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { serveStatic } from "hono/deno";
 import { auth } from "./middleware/auth.ts";
 import { requestLogger } from "./middleware/logger.ts";
 import * as conversations from "./handlers/conversations.ts";
@@ -76,8 +77,21 @@ app.put("/api/config", auth, config.put);
 // ── WebSocket events ───────────────────────────────────────────────────────
 app.get("/api/events", events);
 
-// ── Root ─────────────────────────────────────────────────────────────────────
-app.get("/", (c) => c.text("Hello from Dante!"));
+// ── Static files (production) ────────────────────────────────────────────────
+const distRoot = "./dist";
+
+// Static UI assets produced by `pnpm build`.
+app.use("/*", serveStatic({ root: distRoot }));
+
+// SPA fallback — serve index.html for client-side routing.
+app.get("*", async (c) => {
+  if (c.req.path.startsWith("/api/")) {
+    return c.json({ error: { code: "not_found", message: "not found" } }, 404);
+  }
+  return new Response(await Deno.readTextFile(`${distRoot}/index.html`), {
+    headers: { "Content-Type": "text/html" },
+  });
+});
 
 // ── Start ────────────────────────────────────────────────────────────────────
 const port = Number(Deno.env.get("PORT") ?? 3000);

@@ -35,20 +35,21 @@ export const assistantSchema = z.object({
 });
 export type Assistant = z.infer<typeof assistantSchema>;
 
-export const mcpSchema = z
-  .object({
-    id: z.string().min(1),
-    name: z.string().min(1),
-    transport: z.enum(["stdio", "http", "sse"]),
-    command: z.string().optional(),
-    args: z.array(z.string()).optional(),
-    env: z.record(z.string()).optional(),
-    url: z.string().optional(),
-    headers: z.record(z.string()).optional(),
-  })
-  .refine((m) => (m.transport === "stdio" ? !!m.command : !!m.url), {
-    message: "stdio transport requires command; http/sse requires url",
-  });
+export const mcpObjectSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  transport: z.enum(["stdio", "http", "sse"]),
+  command: z.string().optional(),
+  args: z.array(z.string()).optional(),
+  env: z.record(z.string()).optional(),
+  url: z.string().optional(),
+  headers: z.record(z.string()).optional(),
+});
+
+export const mcpSchema = mcpObjectSchema.refine(
+  (m) => (m.transport === "stdio" ? !!m.command : !!m.url),
+  { message: "stdio transport requires command; http/sse requires url" },
+);
 export type Mcp = z.infer<typeof mcpSchema>;
 
 export const presetSchema = z.object({

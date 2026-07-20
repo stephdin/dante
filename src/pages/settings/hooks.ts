@@ -7,7 +7,7 @@ import { useConfig } from "../../api/queries.ts";
  * entity in the cached config (for edit), and returns loading/not-found flags
  * so every form page gets the same shell behavior.
  */
-export function useSettingsFormContext<T>(
+export function useSettingsFormContext<T extends { id: string }>(
   key: "providers" | "assistants" | "mcps" | "presets",
 ) {
   const { id } = useParams<{ id: string }>();
@@ -16,10 +16,8 @@ export function useSettingsFormContext<T>(
 
   const entity = useMemo(() => {
     if (isNew || !config) return undefined;
-    const list = config[key] as readonly T[];
-    return list.find((item: T & { id: string }) => item.id === id) as
-      | (T & { id: string })
-      | undefined;
+    const list = config[key] as unknown as readonly T[];
+    return list.find((item) => item.id === id);
   }, [isNew, config, key, id]);
 
   const notFound = !isNew && !loading && config !== null && !entity;

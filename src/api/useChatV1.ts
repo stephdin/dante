@@ -3,7 +3,7 @@ import { useConversation, fetchConversation } from "./queries.ts";
 import * as events from "./events.ts";
 import { apiDelete, apiPatch, apiPost } from "./client.ts";
 import { getApiToken } from "./token.ts";
-import type { Message, MessagePart, MessageStats } from "../../shared/types.ts";
+import type { Message, MessagePart, MessageStats } from "@shared/types.ts";
 
 // ── Rendering shape ─────────────────────────────────────────────────────────
 

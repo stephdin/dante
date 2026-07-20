@@ -27,7 +27,7 @@ import {
 import { providerSchema } from "@shared/schemas/config.ts";
 import { useSettingsFormContext } from "./hooks.ts";
 import { saveConfig } from "../../api/queries.ts";
-import type { Config, Provider } from "../../shared/types.ts";
+import type { Config, Provider } from "@shared/types.ts";
 
 const createSchema = providerSchema.omit({ id: true });
 
@@ -112,7 +112,7 @@ export default function ProviderFormPage() {
         navigate(`/settings/providers/${provider.id}`);
       } else {
         const provider = providerSchema.parse(values) as Provider;
-        const idx = newConfig.providers.findIndex((p) => p.id === id);
+        const idx = newConfig.providers.findIndex((p: Provider) => p.id === id);
         if (idx >= 0) newConfig.providers[idx] = provider;
       }
 
@@ -132,7 +132,9 @@ export default function ProviderFormPage() {
     setDeleteError(null);
     try {
       const newConfig: Config = structuredClone(config!);
-      newConfig.providers = newConfig.providers.filter((p) => p.id !== id);
+      newConfig.providers = newConfig.providers.filter(
+        (p: Provider) => p.id !== id,
+      );
       await saveConfig(newConfig);
       navigate("/settings");
     } catch (err) {
@@ -193,82 +195,90 @@ export default function ProviderFormPage() {
                 Noch keine Modelle definiert.
               </Text>
             )}
-            {form.values.models.map((model, index) => (
-              <Group key={index} gap="xs" align="flex-start">
-                <TextInput
-                  placeholder="Modell-ID (z.B. glm-5.2)"
-                  style={{ flex: 1 }}
-                  withAsterisk
-                  {...form.getInputProps(`models.${index}.id`)}
-                />
-                <TextInput
-                  placeholder="Anzeigename"
-                  style={{ flex: 1 }}
-                  withAsterisk
-                  {...form.getInputProps(`models.${index}.name`)}
-                />
-                <Menu position="bottom-end" withinPortal>
-                  <Menu.Target>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      px={6}
-                      title={
-                        model.type === "anthropic"
-                          ? "anthropic"
-                          : "openai-compatible"
-                      }
-                      aria-label={model.type}
-                    >
-                      {model.type === "anthropic" ? (
-                        <IconLetterA size={16} />
-                      ) : (
-                        <IconLetterO size={16} />
-                      )}
-                    </Button>
-                  </Menu.Target>
-                  <Menu.Dropdown>
-                    <Menu.Item
-                      leftSection={<IconLetterO size={16} />}
-                      rightSection={
-                        model.type === "openai-compatible" ? (
-                          <IconCheck size={14} />
-                        ) : null
-                      }
-                      onClick={() =>
-                        form.setFieldValue(
-                          `models.${index}.type`,
-                          "openai-compatible",
-                        )
-                      }
-                    >
-                      openai-compatible
-                    </Menu.Item>
-                    <Menu.Item
-                      leftSection={<IconLetterA size={16} />}
-                      rightSection={
-                        model.type === "anthropic" ? (
-                          <IconCheck size={14} />
-                        ) : null
-                      }
-                      onClick={() =>
-                        form.setFieldValue(`models.${index}.type`, "anthropic")
-                      }
-                    >
-                      anthropic
-                    </Menu.Item>
-                  </Menu.Dropdown>
-                </Menu>
-                <ActionIcon
-                  color="red"
-                  variant="subtle"
-                  mt={4}
-                  onClick={() => form.removeListItem("models", index)}
-                >
-                  <IconTrash size={16} />
-                </ActionIcon>
-              </Group>
-            ))}
+            {form.values.models.map(
+              (
+                model: { id: string; name: string; type: string },
+                index: number,
+              ) => (
+                <Group key={index} gap="xs" align="flex-start">
+                  <TextInput
+                    placeholder="Modell-ID (z.B. glm-5.2)"
+                    style={{ flex: 1 }}
+                    withAsterisk
+                    {...form.getInputProps(`models.${index}.id`)}
+                  />
+                  <TextInput
+                    placeholder="Anzeigename"
+                    style={{ flex: 1 }}
+                    withAsterisk
+                    {...form.getInputProps(`models.${index}.name`)}
+                  />
+                  <Menu position="bottom-end" withinPortal>
+                    <Menu.Target>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        px={6}
+                        title={
+                          model.type === "anthropic"
+                            ? "anthropic"
+                            : "openai-compatible"
+                        }
+                        aria-label={model.type}
+                      >
+                        {model.type === "anthropic" ? (
+                          <IconLetterA size={16} />
+                        ) : (
+                          <IconLetterO size={16} />
+                        )}
+                      </Button>
+                    </Menu.Target>
+                    <Menu.Dropdown>
+                      <Menu.Item
+                        leftSection={<IconLetterO size={16} />}
+                        rightSection={
+                          model.type === "openai-compatible" ? (
+                            <IconCheck size={14} />
+                          ) : null
+                        }
+                        onClick={() =>
+                          form.setFieldValue(
+                            `models.${index}.type`,
+                            "openai-compatible",
+                          )
+                        }
+                      >
+                        openai-compatible
+                      </Menu.Item>
+                      <Menu.Item
+                        leftSection={<IconLetterA size={16} />}
+                        rightSection={
+                          model.type === "anthropic" ? (
+                            <IconCheck size={14} />
+                          ) : null
+                        }
+                        onClick={() =>
+                          form.setFieldValue(
+                            `models.${index}.type`,
+                            "anthropic",
+                          )
+                        }
+                      >
+                        anthropic
+                      </Menu.Item>
+                    </Menu.Dropdown>
+                  </Menu>
+                  <ActionIcon
+                    color="red"
+                    variant="subtle"
+                    mt={4}
+                    onClick={() => form.removeListItem("models", index)}
+                  >
+                    <IconTrash size={16} />
+                  </ActionIcon>
+                </Group>
+              ),
+            )}
             <Button
               variant="subtle"
               color="gray"

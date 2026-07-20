@@ -1,16 +1,24 @@
 // Shared domain types. Config entity types are derived from Zod schemas in
 // `shared/schemas/config.ts` to keep validation and types in sync.
 
-// Re-export config types — pure type re-export, fully erased at compile time.
-export type {
-  SdkType,
-  Model,
-  Provider,
+import type {
   Assistant,
-  Mcp,
-  Preset,
   Config,
+  Mcp,
+  Model,
+  Preset,
+  Provider,
+  SdkType,
 } from "./schemas/config.ts";
+
+// Re-export config types — pure type re-export, fully erased at compile time.
+export type { SdkType, Model, Provider, Assistant, Mcp, Preset, Config };
+
+// Runtime-enriched MCP type used on the settings screen. The `status` field is
+// reported by the server at runtime and is never stored in the config file.
+export type McpConnection = Mcp & {
+  status: "connected" | "disconnected" | "error";
+};
 
 // ── Message parts (future-proof: text, reasoning, tool-call, tool-result) ───
 

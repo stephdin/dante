@@ -21,7 +21,7 @@ export function McpSection({ mcps }: { mcps: Mcp[] }) {
             key={mcp.id}
             icon={<IconPlug size={14} />}
             title={mcp.name}
-            subtitle={mcp.status}
+            subtitle={mcp.transport}
             onClick={() => navigate(`/settings/mcps/${mcp.id}`)}
           />
         ))}

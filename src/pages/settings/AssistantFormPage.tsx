@@ -19,7 +19,7 @@ import { IconArrowLeft } from "@tabler/icons-react";
 import { assistantSchema } from "@shared/schemas/config.ts";
 import { useSettingsFormContext } from "./hooks.ts";
 import { saveConfig } from "../../api/queries.ts";
-import type { Assistant, Config } from "../../shared/types.ts";
+import type { Assistant, Config } from "@shared/types.ts";
 
 const createSchema = assistantSchema.omit({ id: true });
 
@@ -97,7 +97,9 @@ export default function AssistantFormPage() {
         newConfig.assistants.push(assistant);
       } else {
         const assistant = assistantSchema.parse(values) as Assistant;
-        const idx = newConfig.assistants.findIndex((a) => a.id === id);
+        const idx = newConfig.assistants.findIndex(
+          (a: Assistant) => a.id === id,
+        );
         if (idx >= 0) newConfig.assistants[idx] = assistant;
       }
 
@@ -117,7 +119,9 @@ export default function AssistantFormPage() {
     setDeleteError(null);
     try {
       const newConfig: Config = structuredClone(config!);
-      newConfig.assistants = newConfig.assistants.filter((a) => a.id !== id);
+      newConfig.assistants = newConfig.assistants.filter(
+        (a: Assistant) => a.id !== id,
+      );
       await saveConfig(newConfig);
       navigate("/settings");
     } catch (err) {

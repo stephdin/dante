@@ -1,7 +1,7 @@
 import { Badge, Button, EmptyState, Stack } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
-import type { Assistant, Mcp, Preset, Provider } from "@shared/types.ts";
+import type { Assistant, Preset, Provider } from "@shared/types.ts";
 
 import { presetIcon } from "../../../config/presetIcons.ts";
 import { ListItem } from "./ListItem.tsx";
@@ -21,7 +21,7 @@ export function PresetSection({
   presets: Preset[];
   providers: Provider[];
   assistants: Assistant[];
-  mcps: McpConnection[];
+  mcps: { id: string; name: string }[];
 }) {
   const navigate = useNavigate();
 
