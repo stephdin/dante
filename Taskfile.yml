@@ -1,0 +1,57 @@
+# https://taskfile.dev
+version: "3"
+
+tasks:
+  default:
+    cmd: task --list
+    silent: true
+
+  install:
+    desc: Install dependencies for the web app and the server
+    cmd: pnpm install
+
+  setup:
+    desc: Install dependencies and create server/.env from the example
+    deps: [install]
+    cmd: cp server/.env.example server/.env
+    status:
+      - test -f server/.env
+
+  dev:
+    desc: Run the web app and the server together with live reload
+    deps: [dev:web, dev:server]
+
+  dev:web:
+    desc: Run the Vite dev server (proxies /api to the server)
+    cmd: pnpm dev
+
+  dev:server:
+    desc: Run the API server in watch mode
+    dir: server
+    cmd: pnpm dev
+
+  build:
+    desc: Build the web app into dist/
+    cmd: pnpm build
+
+  typecheck:
+    desc: Typecheck the web app and the server
+    cmds:
+      # tsc -b follows the project references; plain tsc --noEmit skips src/.
+      - pnpm exec tsc -b
+      - pnpm --filter dante-server typecheck
+
+  lint:
+    desc: Lint everything with oxlint
+    cmd: pnpm lint
+
+  format:
+    desc: Format everything with Prettier
+    cmd: pnpm format
+
+  check:
+    desc: Typecheck, lint and check formatting, e.g. before committing
+    cmds:
+      - task: typecheck
+      - task: lint
+      - pnpm exec prettier --check "**/*.{ts,tsx}"

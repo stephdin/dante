@@ -1,10 +1,12 @@
-import { useParams } from "react-router"
+import { useLoaderData } from "react-router"
+import type { Chat } from "@ai-sdk/react"
+import type { UIMessage } from "ai"
 
 import { ChatView } from "@/components/chat-view"
-import { getChat } from "@/lib/chat"
 
 export function ConversationPage() {
-  const { id } = useParams<{ id: string }>()
+  // Client loaders aren't serialized, so this is the live Chat from loadChat.
+  const chat = useLoaderData() as Chat<UIMessage>
 
-  return <ChatView key={id} chat={getChat(id!)} />
+  return <ChatView key={chat.id} chat={chat} />
 }

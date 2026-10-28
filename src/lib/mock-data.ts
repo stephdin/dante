@@ -1,45 +1,4 @@
-import type { UIMessage } from "ai"
-
-// Placeholder data until the server is connected again.
-
-export type ConversationSummary = {
-  id: string
-  label: string
-  preview: string
-}
-
-export const conversations: ConversationSummary[] = [
-  {
-    id: "demo-1",
-    label: "Rezeptideen für den Herbst",
-    preview: "Was kann ich mit Kürbis kochen?",
-  },
-  {
-    id: "demo-2",
-    label: "Urlaubsplanung",
-    preview: "Drei Tage in Lissabon – was lohnt sich?",
-  },
-]
-
-export const initialMessages: Record<string, UIMessage[]> = {
-  "demo-1": [
-    {
-      id: "demo-1-user",
-      role: "user",
-      parts: [{ type: "text", text: "Was kann ich mit Kürbis kochen?" }],
-    },
-    {
-      id: "demo-1-assistant",
-      role: "assistant",
-      parts: [
-        {
-          type: "text",
-          text: "Zum Beispiel:\n\n1. **Kürbissuppe** mit Ingwer\n2. **Ofenkürbis** mit Feta\n3. **Kürbisrisotto**\n\n| Gericht | Zeit |\n| --- | --- |\n| Suppe | 40 min |\n| Ofenkürbis | 30 min |\n| Risotto | 45 min |",
-        },
-      ],
-    },
-  ],
-}
+// Placeholder data until the settings are connected to the server.
 
 export type SettingsKind = "providers" | "assistants" | "presets" | "mcps"
 
@@ -69,6 +28,8 @@ export const settingsSections: Record<
   },
 }
 
-export function isSettingsKind(value: string | undefined): value is SettingsKind {
+export function isSettingsKind(
+  value: string | undefined
+): value is SettingsKind {
   return value !== undefined && value in settingsSections
 }

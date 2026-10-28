@@ -13,7 +13,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { conversations } from "@/lib/mock-data"
+import { Spinner } from "@/components/ui/spinner"
+import { useConversations } from "@/lib/conversations"
 
 const navItems = [
   { to: "/new", label: "Neuer Chat", icon: PlusIcon },
@@ -24,6 +25,7 @@ const navItems = [
 export function AppSidebar() {
   const { pathname } = useLocation()
   const { setOpenMobile } = useSidebar()
+  const conversations = useConversations()
   const close = () => setOpenMobile(false)
 
   return (
@@ -62,7 +64,8 @@ export function AppSidebar() {
                       isActive={pathname === to}
                       render={<Link to={to} onClick={close} />}
                     >
-                      <span>{chat.label}</span>
+                      {chat.running && <Spinner aria-label="Antwortet" />}
+                      <span>{chat.title}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )

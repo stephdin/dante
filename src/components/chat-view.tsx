@@ -16,6 +16,7 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller"
+import { stopRun } from "@/lib/api"
 import { getMessageText } from "@/lib/chat"
 
 export function ChatView({ chat }: { chat: Chat<UIMessage> }) {
@@ -99,7 +100,10 @@ export function ChatView({ chat }: { chat: Chat<UIMessage> }) {
           value={draft}
           onValueChange={setDraft}
           busy={busy}
-          onStop={stop}
+          onStop={() => {
+            void stopRun(chat.id)
+            void stop()
+          }}
           onSubmit={(text) => sendMessage({ text })}
         />
       </div>

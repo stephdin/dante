@@ -1,0 +1,25 @@
+{
+  "name": "dante-server",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --watch src/index.ts",
+    "start": "node --env-file-if-exists=.env src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.90",
+    "@ai-sdk/openai-compatible": "^3.0.80",
+    "@hono/node-server": "^2.1.5",
+    "ai": "^7.0.155",
+    "hono": "^4.13.14"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,6 +1,7 @@
 import { Navigate, type RouteObject } from "react-router"
 
 import { AppLayout, type RouteHandle } from "@/components/app-layout"
+import { loadChat } from "@/lib/chat"
 import { ChatsPage } from "@/pages/chats-page"
 import { ConversationPage } from "@/pages/conversation-page"
 import { NewConversationPage } from "@/pages/new-conversation-page"
@@ -26,6 +27,7 @@ export const routes: RouteObject[] = [
       },
       {
         path: "conversation/:id",
+        loader: ({ params }) => loadChat(params.id!),
         element: <ConversationPage />,
         handle: { menu: "conversation" } satisfies RouteHandle,
       },
