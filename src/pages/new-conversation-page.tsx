@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useNavigate } from "react-router"
 import { generateId } from "ai"
 import { SparklesIcon } from "lucide-react"
@@ -14,6 +15,7 @@ import { getChat } from "@/lib/chat"
 
 export function NewConversationPage() {
   const navigate = useNavigate()
+  const [draft, setDraft] = useState("")
 
   // Start the chat right away and hand over to the conversation page; the
   // Chat instance (and its running stream) survives the navigation.
@@ -36,7 +38,11 @@ export function NewConversationPage() {
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
-      <PromptInput onSubmit={handleSubmit} />
+      <PromptInput
+        value={draft}
+        onValueChange={setDraft}
+        onSubmit={handleSubmit}
+      />
     </div>
   )
 }

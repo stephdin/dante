@@ -34,7 +34,7 @@ export const initialMessages: Record<string, UIMessage[]> = {
       parts: [
         {
           type: "text",
-          text: "Zum Beispiel eine Kürbissuppe, Ofenkürbis mit Feta oder ein Kürbisrisotto.",
+          text: "Zum Beispiel:\n\n1. **Kürbissuppe** mit Ingwer\n2. **Ofenkürbis** mit Feta\n3. **Kürbisrisotto**\n\n| Gericht | Zeit |\n| --- | --- |\n| Suppe | 40 min |\n| Ofenkürbis | 30 min |\n| Risotto | 45 min |",
         },
       ],
     },

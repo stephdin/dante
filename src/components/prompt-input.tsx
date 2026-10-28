@@ -1,4 +1,3 @@
-import { useState } from "react"
 import { ArrowUpIcon, SquareIcon } from "lucide-react"
 
 import {
@@ -9,21 +8,25 @@ import {
 } from "@/components/ui/input-group"
 
 export function PromptInput({
+  value,
+  onValueChange,
   onSubmit,
   onStop,
   busy = false,
+  ref,
 }: {
+  value: string
+  onValueChange: (value: string) => void
   onSubmit: (text: string) => void
   onStop?: () => void
   busy?: boolean
+  ref?: React.Ref<HTMLTextAreaElement>
 }) {
-  const [text, setText] = useState("")
-
   function submit() {
-    const trimmed = text.trim()
+    const trimmed = value.trim()
     if (!trimmed || busy) return
     onSubmit(trimmed)
-    setText("")
+    onValueChange("")
   }
 
   return (
@@ -35,8 +38,9 @@ export function PromptInput({
     >
       <InputGroup>
         <InputGroupTextarea
-          value={text}
-          onChange={(event) => setText(event.target.value)}
+          ref={ref}
+          value={value}
+          onChange={(event) => onValueChange(event.target.value)}
           onKeyDown={(event) => {
             if (
               event.key === "Enter" &&
@@ -68,7 +72,7 @@ export function PromptInput({
               variant="default"
               className="ml-auto rounded-full"
               aria-label="Senden"
-              disabled={!text.trim()}
+              disabled={!value.trim()}
             >
               <ArrowUpIcon />
             </InputGroupButton>

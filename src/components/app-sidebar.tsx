@@ -31,7 +31,7 @@ export function AppSidebar() {
       <SidebarHeader>
         <span className="px-2 py-1 text-lg font-semibold">Dante</span>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="scroll-fade-y">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
