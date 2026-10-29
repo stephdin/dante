@@ -1,4 +1,3 @@
-import * as React from "react"
 import {
   createHighlighterCore,
   type GrammarState,
@@ -23,7 +22,9 @@ const languages = {
   yaml: () => import("shiki/langs/yaml.mjs"),
 }
 
-const aliases: Record<string, keyof typeof languages> = {
+type Language = keyof typeof languages
+
+const aliases: Record<string, Language> = {
   js: "javascript",
   md: "markdown",
   py: "python",
@@ -35,10 +36,10 @@ const aliases: Record<string, keyof typeof languages> = {
   zsh: "bash",
 }
 
-let highlighter: Promise<HighlighterCore> | undefined
+let shikiCore: Promise<HighlighterCore> | undefined
 
-function getHighlighter() {
-  highlighter ??= createHighlighterCore({
+function getShiki() {
+  shikiCore ??= createHighlighterCore({
     themes: [
       import("shiki/themes/github-light.mjs"),
       import("shiki/themes/github-dark.mjs"),
@@ -46,57 +47,50 @@ function getHighlighter() {
     langs: [],
     engine: createJavaScriptRegexEngine({ forgiving: true }),
   })
-
-  return highlighter
+  return shikiCore
 }
 
-function getLanguage(language: string) {
+// ANSI is built into Shiki, so it needs no grammar.
+function resolveLanguage(language: string): Language | "ansi" | undefined {
   const name = language.toLowerCase()
-
-  if (name === "ansi") {
-    return name
-  }
-
-  if (name in languages) {
-    return name as keyof typeof languages
-  }
-
-  return aliases[name] ?? null
+  if (name === "ansi") return name
+  return name in languages ? (name as Language) : aliases[name]
 }
 
-// Loads a language and returns a highlighter for it, or null for a language
-// that is not listed.
+export type Highlighter = NonNullable<
+  Awaited<ReturnType<typeof loadHighlighter>>
+>
+
+/** Loads a language and returns a highlighter for it, or null if unsupported. */
 export async function loadHighlighter(language: string) {
-  const lang = getLanguage(language)
+  const lang = resolveLanguage(language)
+  if (!lang) return null
 
-  if (!lang) {
-    return null
-  }
-
-  const shiki = await getHighlighter()
-
+  const shiki = await getShiki()
   if (lang !== "ansi" && !shiki.getLoadedLanguages().includes(lang)) {
     await shiki.loadLanguage(languages[lang])
   }
 
-  return {
-    // Returns one React node per line, and the grammar state after the last
-    // line. Pass that state back to continue where the code left off.
-    highlight(code: string, state?: GrammarState) {
-      const tokenize = (text: string) =>
-        shiki.codeToTokens(text, {
-          lang,
-          themes: { light: "github-light", dark: "github-dark" },
-          defaultColor: false,
-          grammarState: state,
-        }).tokens
+  const tokenize = (code: string, state?: GrammarState) =>
+    shiki.codeToTokens(code, {
+      lang,
+      themes: { light: "github-light", dark: "github-dark" },
+      defaultColor: false,
+      grammarState: state,
+    }).tokens
 
+  return {
+    /**
+     * Returns one React node per line, and the grammar state after the last
+     * line. Pass that state back in to continue where the code left off.
+     */
+    highlight(code: string, state?: GrammarState) {
       // ANSI has no grammar state, so each line is tokenized on its own and
       // gets the same colors whether it arrives in one piece or streams.
       const tokens =
         lang === "ansi"
           ? code.split("\n").flatMap((line) => tokenize(line))
-          : tokenize(code)
+          : tokenize(code, state)
 
       return {
         lines: tokens.map((line) =>
@@ -114,11 +108,4 @@ export async function loadHighlighter(language: string) {
       }
     },
   }
-}
-
-// Returns one React node per line, or null for a language that is not listed.
-export async function highlightCode(code: string, language: string) {
-  const highlighter = await loadHighlighter(language)
-
-  return highlighter ? highlighter.highlight(code).lines : null
 }

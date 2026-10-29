@@ -53,52 +53,12 @@ import {
   useRenameConversation,
 } from "@/lib/conversations"
 
-const DAY = 24 * 60 * 60 * 1000
-
-function groupLabel(updatedAt: string, today: number) {
-  const days = Math.floor((today - new Date(updatedAt).getTime()) / DAY) + 1
-  if (days <= 0) return "Heute"
-  if (days === 1) return "Gestern"
-  if (days <= 7) return "Letzte 7 Tage"
-  if (days <= 30) return "Letzte 30 Tage"
-  return "Älter"
-}
-
-// The list arrives newest first, so consecutive runs make up the groups.
-function groupByDate(conversations: ConversationSummary[]) {
-  const today = new Date().setHours(0, 0, 0, 0)
-  const groups: { label: string; chats: ConversationSummary[] }[] = []
-  for (const chat of conversations) {
-    const label = groupLabel(chat.updatedAt, today)
-    if (groups.at(-1)?.label === label) groups.at(-1)!.chats.push(chat)
-    else groups.push({ label, chats: [chat] })
-  }
-  return groups
-}
-
 export function AppSidebar({
   onWidthChange,
 }: {
   onWidthChange: (width: number) => void
 }) {
-  const { pathname } = useLocation()
-  const { setOpenMobile } = useSidebar()
   const scrollRef = useScrollEdges<HTMLDivElement>()
-  const close = () => setOpenMobile(false)
-
-  function navItem(item: { to: string; label: string; icon: LucideIcon }) {
-    return (
-      <SidebarMenuItem key={item.to}>
-        <SidebarMenuButton
-          isActive={pathname === item.to}
-          render={<Link to={item.to} onClick={close} />}
-        >
-          <item.icon />
-          <span>{item.label}</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    )
-  }
 
   // Header and footer stay put; only the chat list scrolls.
   return (
@@ -106,8 +66,12 @@ export function AppSidebar({
       <SidebarHeader>
         <span className="px-2 pt-1 pb-3 text-lg font-semibold">Dante</span>
         <SidebarMenu>
-          {navItem({ to: "/new", label: "Neuer Chat", icon: SquarePenIcon })}
-          {navItem({ to: "/chats", label: "Chat-Übersicht", icon: ListIcon })}
+          <NavItem to="/new" icon={SquarePenIcon}>
+            Neuer Chat
+          </NavItem>
+          <NavItem to="/chats" icon={ListIcon}>
+            Chat-Übersicht
+          </NavItem>
         </SidebarMenu>
       </SidebarHeader>
 
@@ -116,16 +80,14 @@ export function AppSidebar({
         ref={scrollRef}
         className="scroll-fade-y data-[at-bottom=true]:[--scroll-fade-b:0px] data-[at-top=true]:[--scroll-fade-t:0px]"
       >
-        <ChatList onNavigate={close} />
+        <ChatList />
       </SidebarContent>
 
       <SidebarFooter>
         <SidebarMenu>
-          {navItem({
-            to: "/settings",
-            label: "Einstellungen",
-            icon: SettingsIcon,
-          })}
+          <NavItem to="/settings" icon={SettingsIcon}>
+            Einstellungen
+          </NavItem>
         </SidebarMenu>
       </SidebarFooter>
 
@@ -134,7 +96,47 @@ export function AppSidebar({
   )
 }
 
-function ChatList({ onNavigate }: { onNavigate: () => void }) {
+function NavItem({
+  to,
+  icon: Icon,
+  children,
+}: {
+  to: string
+  icon: LucideIcon
+  children: React.ReactNode
+}) {
+  return (
+    <SidebarMenuItem>
+      <SidebarLink to={to}>
+        <Icon />
+        <span>{children}</span>
+      </SidebarLink>
+    </SidebarMenuItem>
+  )
+}
+
+// Highlights the current page and closes the sidebar on mobile when clicked.
+function SidebarLink({
+  to,
+  children,
+}: {
+  to: string
+  children: React.ReactNode
+}) {
+  const { pathname } = useLocation()
+  const { setOpenMobile } = useSidebar()
+
+  return (
+    <SidebarMenuButton
+      isActive={pathname === to}
+      render={<Link to={to} onClick={() => setOpenMobile(false)} />}
+    >
+      {children}
+    </SidebarMenuButton>
+  )
+}
+
+function ChatList() {
   const { data: conversations, isPending, isError } = useConversations()
 
   if (isPending || isError || conversations.length === 0) {
@@ -166,7 +168,7 @@ function ChatList({ onNavigate }: { onNavigate: () => void }) {
       <SidebarGroupContent>
         <SidebarMenu>
           {group.chats.map((chat) => (
-            <ChatItem key={chat.id} chat={chat} onNavigate={onNavigate} />
+            <ChatItem key={chat.id} chat={chat} />
           ))}
         </SidebarMenu>
       </SidebarGroupContent>
@@ -174,13 +176,7 @@ function ChatList({ onNavigate }: { onNavigate: () => void }) {
   ))
 }
 
-function ChatItem({
-  chat,
-  onNavigate,
-}: {
-  chat: ConversationSummary
-  onNavigate: () => void
-}) {
+function ChatItem({ chat }: { chat: ConversationSummary }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const [editing, setEditing] = useState(false)
@@ -221,13 +217,10 @@ function ChatItem({
         />
       ) : (
         <>
-          <SidebarMenuButton
-            isActive={pathname === to}
-            render={<Link to={to} onClick={onNavigate} />}
-          >
+          <SidebarLink to={to}>
             {chat.running && <Spinner aria-label="Antwortet" />}
             <span>{chat.title}</span>
-          </SidebarMenuButton>
+          </SidebarLink>
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<SidebarMenuAction showOnHover aria-label="Aktionen" />}
@@ -268,4 +261,30 @@ function ChatItem({
       </AlertDialog>
     </SidebarMenuItem>
   )
+}
+
+const DAY = 24 * 60 * 60 * 1000
+
+// The list arrives newest first, so consecutive runs make up the groups.
+function groupByDate(conversations: ConversationSummary[]) {
+  const startOfToday = new Date().setHours(0, 0, 0, 0)
+  const groups: { label: string; chats: ConversationSummary[] }[] = []
+  for (const chat of conversations) {
+    const daysAgo = Math.ceil(
+      (startOfToday - new Date(chat.updatedAt).getTime()) / DAY
+    )
+    const label = dateLabel(daysAgo)
+    const last = groups.at(-1)
+    if (last?.label === label) last.chats.push(chat)
+    else groups.push({ label, chats: [chat] })
+  }
+  return groups
+}
+
+function dateLabel(daysAgo: number) {
+  if (daysAgo <= 0) return "Heute"
+  if (daysAgo === 1) return "Gestern"
+  if (daysAgo <= 7) return "Letzte 7 Tage"
+  if (daysAgo <= 30) return "Letzte 30 Tage"
+  return "Älter"
 }

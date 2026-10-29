@@ -17,23 +17,24 @@ const greetings = {
   night: ["Noch wach?", "Hallo, Nachteule", "Späte Stunde", "Nachtschicht?"],
 }
 
-function greeting(hour: number) {
-  const options =
-    hour >= 5 && hour < 11
-      ? greetings.morning
-      : hour >= 11 && hour < 18
-        ? greetings.day
-        : hour >= 18 && hour < 23
-          ? greetings.evening
-          : greetings.night
+function greetingsAt(hour: number) {
+  if (hour < 5) return greetings.night
+  if (hour < 11) return greetings.morning
+  if (hour < 18) return greetings.day
+  if (hour < 23) return greetings.evening
+  return greetings.night
+}
+
+function randomGreeting() {
+  const options = greetingsAt(new Date().getHours())
   return options[Math.floor(Math.random() * options.length)]
 }
 
 export function NewConversationPage() {
   const navigate = useNavigate()
   const [draft, setDraft] = useState("")
-  // Pick once per visit so the greeting doesn't change while typing.
-  const [title] = useState(() => greeting(new Date().getHours()))
+  // Picked once per visit, so the greeting doesn't change while typing.
+  const [title] = useState(randomGreeting)
 
   // Start the chat right away and hand over to the conversation page; the
   // Chat instance (and its running stream) survives the navigation.

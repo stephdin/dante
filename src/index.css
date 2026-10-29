@@ -123,18 +123,19 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
+  }
   body {
     @apply bg-background text-foreground;
-    }
+  }
   html {
     @apply font-sans;
-    }
+  }
   /* Follow the pointer directly while dragging the sidebar edge. */
   body[data-sidebar-resizing] {
     @apply cursor-col-resize select-none;
-    }
-  body[data-sidebar-resizing] :is([data-slot="sidebar-gap"], [data-slot="sidebar-container"]) {
+  }
+  body[data-sidebar-resizing]
+    :is([data-slot="sidebar-gap"], [data-slot="sidebar-container"]) {
     @apply transition-none;
-    }
+  }
 }

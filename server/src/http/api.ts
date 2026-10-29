@@ -81,29 +81,16 @@ export function createApi(deps: {
 
   app.post("/chat", async (c) => {
     const { id, trigger, messageId, message } = await c.req.json<ChatRequest>()
-    if (runs.isRunning(id))
+    if (runs.isRunning(id)) {
       return c.json({ error: "a run is already active" }, 409)
+    }
 
     const existing = store.get(id)
-    let messages = existing?.messages ?? []
-
-    if (trigger === "regenerate-message") {
-      // Same truncation as the client: drop the answer that gets regenerated.
-      const index = messageId
-        ? messages.findIndex((m) => m.id === messageId)
-        : messages.findLastIndex((m) => m.role === "assistant")
-      if (index !== -1) {
-        messages = messages.slice(
-          0,
-          messages[index].role === "assistant" ? index : index + 1
-        )
-      }
-    } else {
-      const [userMessage] = await validateUIMessages<UIMessage>({
-        messages: [message],
-      })
-      messages = [...messages, userMessage]
-    }
+    const history = existing?.messages ?? []
+    const messages =
+      trigger === "regenerate-message"
+        ? truncateForRegenerate(history, messageId)
+        : [...history, await parseMessage(message)]
 
     runs.start({ id, title: existing?.title ?? titleFrom(messages), messages })
     return createUIMessageStreamResponse({ stream: runs.subscribe(id)! })
@@ -140,6 +127,21 @@ export function createApi(deps: {
   )
 
   return app
+}
+
+async function parseMessage(message: unknown) {
+  const [parsed] = await validateUIMessages<UIMessage>({ messages: [message] })
+  return parsed
+}
+
+/** Same truncation as the client: drops the answer that gets regenerated. */
+function truncateForRegenerate(messages: UIMessage[], messageId?: string) {
+  const index = messageId
+    ? messages.findIndex((m) => m.id === messageId)
+    : messages.findLastIndex((m) => m.role === "assistant")
+  if (index === -1) return messages
+  const end = messages[index].role === "assistant" ? index : index + 1
+  return messages.slice(0, end)
 }
 
 function titleFrom(messages: UIMessage[]) {

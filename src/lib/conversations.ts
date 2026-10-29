@@ -1,9 +1,4 @@
-import {
-  queryOptions,
-  useMutation,
-  useQuery,
-  type QueryKey,
-} from "@tanstack/react-query"
+import { queryOptions, useMutation, useQuery } from "@tanstack/react-query"
 
 import {
   deleteConversation,
@@ -66,8 +61,8 @@ export function useDeleteConversation() {
   )
 }
 
-function invalidate(queryKey: QueryKey) {
-  void queryClient.invalidateQueries({ queryKey })
+function refetchConversations() {
+  void queryClient.invalidateQueries({ queryKey: conversationsQuery.queryKey })
 }
 
 /**
@@ -79,14 +74,14 @@ export function connectServerEvents() {
 
   // Also fires after a reconnect, where we may have missed events.
   source.addEventListener("open", () => {
-    invalidate(conversationsQuery.queryKey)
+    refetchConversations()
     syncAllChats()
   })
 
   source.addEventListener("message", (message: MessageEvent<string>) => {
     const event = JSON.parse(message.data) as ServerEvent
     if (event.type === "conversations-changed") {
-      invalidate(conversationsQuery.queryKey)
+      refetchConversations()
     } else {
       syncChatById(event.conversationId)
     }

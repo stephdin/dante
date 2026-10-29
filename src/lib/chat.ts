@@ -3,12 +3,6 @@ import { DefaultChatTransport, type UIMessage } from "ai"
 
 import { getConversation } from "@/lib/api"
 
-export function getMessageText(message: UIMessage) {
-  return message.parts
-    .flatMap((part) => (part.type === "text" ? [part.text] : []))
-    .join("")
-}
-
 // The server owns the history, so only the new message goes over the wire.
 const transport = new DefaultChatTransport<UIMessage>({
   api: "/api/chat",
@@ -17,9 +11,9 @@ const transport = new DefaultChatTransport<UIMessage>({
   }),
 })
 
-// One Chat instance per conversation, kept for the lifetime of the page so
-// that navigating away and back (or from /new to /conversation/:id) keeps
-// the messages and any running stream.
+// One Chat per conversation, kept for the lifetime of the page, so that
+// navigating away and back (or from /new to /conversation/:id) keeps the
+// messages and any running stream.
 const chats = new Map<string, Chat<UIMessage>>()
 
 export function getChat(id: string) {
@@ -31,11 +25,21 @@ export function getChat(id: string) {
   return chat
 }
 
+/** Route loader: returns the Chat, fetching its history on first visit. */
 export async function loadChat(id: string) {
-  const known = chats.has(id)
+  const isNew = !chats.has(id)
   const chat = getChat(id)
-  if (!known) await syncChat(chat)
+  if (isNew) await syncChat(chat)
   return chat
+}
+
+export function syncChatById(id: string) {
+  const chat = chats.get(id)
+  if (chat) void syncChat(chat)
+}
+
+export function syncAllChats() {
+  for (const chat of chats.values()) void syncChat(chat)
 }
 
 /**
@@ -51,11 +55,8 @@ async function syncChat(chat: Chat<UIMessage>) {
   if (conversation.running) void chat.resumeStream()
 }
 
-export function syncChatById(id: string) {
-  const chat = chats.get(id)
-  if (chat) void syncChat(chat)
-}
-
-export function syncAllChats() {
-  for (const chat of chats.values()) void syncChat(chat)
+export function getMessageText(message: UIMessage) {
+  return message.parts
+    .flatMap((part) => (part.type === "text" ? [part.text] : []))
+    .join("")
 }

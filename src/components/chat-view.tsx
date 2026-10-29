@@ -32,6 +32,12 @@ export function ChatView({ chat }: { chat: Chat<UIMessage> }) {
     inputRef.current?.focus()
   }
 
+  // `stop` only closes our stream; the run itself lives on the server.
+  function stopRunning() {
+    void stopRun(chat.id)
+    void stop()
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <MessageScrollerProvider autoScroll>
@@ -39,9 +45,7 @@ export function ChatView({ chat }: { chat: Chat<UIMessage> }) {
           <MessageScrollerViewport>
             <MessageScrollerContent className="mx-auto w-full max-w-3xl p-4">
               {messages.map((message) => {
-                const text = getMessageText(message)
-                const streaming = busy && message.id === lastId
-
+                const isLast = message.id === lastId
                 return (
                   <MessageScrollerItem
                     key={message.id}
@@ -49,36 +53,17 @@ export function ChatView({ chat }: { chat: Chat<UIMessage> }) {
                     scrollAnchor={message.role === "user"}
                   >
                     {message.role === "user" ? (
-                      <Message align="end">
-                        <MessageContent>
-                          <Bubble align="end" variant="muted">
-                            <BubbleContent>{text}</BubbleContent>
-                          </Bubble>
-                          <UserActions text={text} onEdit={() => edit(text)} />
-                        </MessageContent>
-                      </Message>
+                      <UserMessage message={message} onEdit={edit} />
                     ) : (
-                      <Message>
-                        <MessageContent>
-                          <Reasoning
-                            parts={message.parts.filter(
-                              (part) => part.type === "reasoning"
-                            )}
-                            streaming={streaming}
-                          />
-                          <Markdown streaming={streaming}>{text}</Markdown>
-                          {!streaming && (
-                            <AssistantActions
-                              text={text}
-                              onRetry={
-                                message.id === lastId && !busy
-                                  ? () => regenerate({ messageId: message.id })
-                                  : undefined
-                              }
-                            />
-                          )}
-                        </MessageContent>
-                      </Message>
+                      <AssistantMessage
+                        message={message}
+                        streaming={busy && isLast}
+                        onRetry={
+                          !busy && isLast
+                            ? () => regenerate({ messageId: message.id })
+                            : undefined
+                        }
+                      />
                     )}
                   </MessageScrollerItem>
                 )
@@ -100,13 +85,54 @@ export function ChatView({ chat }: { chat: Chat<UIMessage> }) {
           value={draft}
           onValueChange={setDraft}
           busy={busy}
-          onStop={() => {
-            void stopRun(chat.id)
-            void stop()
-          }}
+          onStop={stopRunning}
           onSubmit={(text) => sendMessage({ text })}
         />
       </div>
     </div>
+  )
+}
+
+function UserMessage({
+  message,
+  onEdit,
+}: {
+  message: UIMessage
+  onEdit: (text: string) => void
+}) {
+  const text = getMessageText(message)
+
+  return (
+    <Message align="end">
+      <MessageContent>
+        <Bubble align="end" variant="muted">
+          <BubbleContent>{text}</BubbleContent>
+        </Bubble>
+        <UserActions text={text} onEdit={() => onEdit(text)} />
+      </MessageContent>
+    </Message>
+  )
+}
+
+function AssistantMessage({
+  message,
+  streaming,
+  onRetry,
+}: {
+  message: UIMessage
+  streaming: boolean
+  onRetry?: () => void
+}) {
+  const text = getMessageText(message)
+  const reasoning = message.parts.filter((part) => part.type === "reasoning")
+
+  return (
+    <Message>
+      <MessageContent>
+        <Reasoning parts={reasoning} streaming={streaming} />
+        <Markdown streaming={streaming}>{text}</Markdown>
+        {!streaming && <AssistantActions text={text} onRetry={onRetry} />}
+      </MessageContent>
+    </Message>
   )
 }

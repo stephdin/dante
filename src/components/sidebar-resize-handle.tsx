@@ -48,7 +48,7 @@ export function SidebarResizeHandle({
           onWidthChange(event.clientX)
         }
       }}
-      onPointerUp={() => delete document.body.dataset.sidebarResizing}
+      // Also fires on pointer up, which releases the capture.
       onLostPointerCapture={() => delete document.body.dataset.sidebarResizing}
       onDoubleClick={() => onWidthChange(DEFAULT_WIDTH)}
     />
