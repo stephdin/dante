@@ -44,12 +44,21 @@ const components: Components = {
 
     const language = /language-(\S+)/.exec(props.className ?? "")?.[1] ?? ""
     return (
-      <MarkdownCodeBlock code={String(props.children ?? "")} language={language} />
+      <MarkdownCodeBlock
+        code={String(props.children ?? "")}
+        language={language}
+      />
     )
   },
 }
 
-function MarkdownCodeBlock({ code, language }: { code: string; language: string }) {
+function MarkdownCodeBlock({
+  code,
+  language,
+}: {
+  code: string
+  language: string
+}) {
   const lines = useHighlightedCode(code, language)
 
   return (

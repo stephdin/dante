@@ -57,6 +57,18 @@ export function createApi(deps: {
     return c.json({ ...conversation, running: runs.isRunning(conversation.id) })
   })
 
+  app.patch("/conversations/:id", async (c) => {
+    const { title } = await c.req.json<{ title?: unknown }>()
+    if (typeof title !== "string" || !title.trim()) {
+      return c.json({ error: "title required" }, 400)
+    }
+    if (!store.rename(c.req.param("id"), title.trim())) {
+      return c.json({ error: "not found" }, 404)
+    }
+    events.publish({ type: "conversations-changed" })
+    return c.body(null, 204)
+  })
+
   app.delete("/conversations/:id", (c) => {
     const id = c.req.param("id")
     runs.stop(id)
@@ -116,6 +128,9 @@ export function createApi(deps: {
         void stream.writeSSE({ data: JSON.stringify(event) })
       })
       stream.onAbort(unsubscribe)
+      // Send something right away: proxies (like Vite's dev proxy) hold the
+      // response until the first byte, so the client's "open" never fires.
+      await stream.write(": connected\n\n")
       // Keep idle connections from being closed by proxies.
       while (!stream.aborted) {
         await stream.sleep(25_000)

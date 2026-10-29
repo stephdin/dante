@@ -33,6 +33,20 @@ export async function getConversation(
   return response.status === 404 ? undefined : response.json()
 }
 
+export async function renameConversation(id: string, title: string) {
+  await request(`/conversations/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  })
+}
+
+export async function deleteConversation(id: string) {
+  await request(`/conversations/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  })
+}
+
 export async function stopRun(id: string) {
   await request(`/chat/${encodeURIComponent(id)}/stop`, { method: "POST" })
 }

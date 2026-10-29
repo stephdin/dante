@@ -14,5 +14,6 @@ export interface ConversationStore {
   list(): ConversationSummary[]
   get(id: string): Conversation | undefined
   save(conversation: Omit<Conversation, "updatedAt">): void
+  rename(id: string, title: string): boolean
   delete(id: string): boolean
 }

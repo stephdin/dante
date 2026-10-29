@@ -22,11 +22,16 @@ export function createSqliteStore(
     "SELECT id, title, updated_at FROM conversations ORDER BY updated_at DESC"
   )
   const getQuery = db.prepare("SELECT * FROM conversations WHERE id = ?")
+  // The title is only set on insert, so a rename isn't undone by a run that
+  // is still saving its steps.
   const saveQuery = db.prepare(`
     INSERT INTO conversations (id, title, messages, updated_at) VALUES (?, ?, ?, ?)
     ON CONFLICT (id) DO UPDATE SET
-      title = excluded.title, messages = excluded.messages, updated_at = excluded.updated_at
+      messages = excluded.messages, updated_at = excluded.updated_at
   `)
+  const renameQuery = db.prepare(
+    "UPDATE conversations SET title = ? WHERE id = ?"
+  )
   const deleteQuery = db.prepare("DELETE FROM conversations WHERE id = ?")
 
   return {
@@ -54,6 +59,7 @@ export function createSqliteStore(
         new Date().toISOString()
       )
     },
+    rename: (id, title) => renameQuery.run(title, id).changes > 0,
     delete: (id) => deleteQuery.run(id).changes > 0,
     close: () => db.close(),
   }

@@ -1,28 +1,73 @@
-import { useSyncExternalStore } from "react"
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  type QueryKey,
+} from "@tanstack/react-query"
 
 import {
+  deleteConversation,
   listConversations,
+  renameConversation,
   type ConversationSummary,
   type ServerEvent,
 } from "@/lib/api"
 import { syncAllChats, syncChatById } from "@/lib/chat"
+import { queryClient } from "@/lib/query-client"
 
-let conversations: ConversationSummary[] = []
-const listeners = new Set<() => void>()
-
-async function refreshConversations() {
-  conversations = await listConversations()
-  for (const listener of listeners) listener()
-}
+const conversationsQuery = queryOptions({
+  queryKey: ["conversations"],
+  queryFn: listConversations,
+})
 
 export function useConversations() {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-      return () => listeners.delete(listener)
+  return useQuery(conversationsQuery)
+}
+
+// Apply a change to the cached list right away and roll it back if the
+// request fails. The server's "conversations-changed" event refetches anyway.
+function useListMutation<TVariables>(
+  mutationFn: (variables: TVariables) => Promise<void>,
+  update: (
+    list: ConversationSummary[],
+    variables: TVariables
+  ) => ConversationSummary[]
+) {
+  const { queryKey } = conversationsQuery
+  return useMutation({
+    mutationFn,
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey })
+      const previous = queryClient.getQueryData(queryKey)
+      queryClient.setQueryData(queryKey, (list) =>
+        list ? update(list, variables) : list
+      )
+      return { previous }
     },
-    () => conversations
+    onError: (_error, _variables, context) =>
+      queryClient.setQueryData(queryKey, context?.previous),
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  })
+}
+
+export function useRenameConversation() {
+  return useListMutation(
+    ({ id, title }: { id: string; title: string }) =>
+      renameConversation(id, title),
+    (list, { id, title }) =>
+      list.map((chat) => (chat.id === id ? { ...chat, title } : chat))
   )
+}
+
+export function useDeleteConversation() {
+  return useListMutation(
+    (id: string) => deleteConversation(id),
+    (list, id) => list.filter((chat) => chat.id !== id)
+  )
+}
+
+function invalidate(queryKey: QueryKey) {
+  void queryClient.invalidateQueries({ queryKey })
 }
 
 /**
@@ -34,13 +79,16 @@ export function connectServerEvents() {
 
   // Also fires after a reconnect, where we may have missed events.
   source.addEventListener("open", () => {
-    void refreshConversations()
+    invalidate(conversationsQuery.queryKey)
     syncAllChats()
   })
 
   source.addEventListener("message", (message: MessageEvent<string>) => {
     const event = JSON.parse(message.data) as ServerEvent
-    if (event.type === "conversations-changed") void refreshConversations()
-    else syncChatById(event.conversationId)
+    if (event.type === "conversations-changed") {
+      invalidate(conversationsQuery.queryKey)
+    } else {
+      syncChatById(event.conversationId)
+    }
   })
 }

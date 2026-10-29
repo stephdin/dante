@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react"
-import {
-  CheckIcon,
-  CopyIcon,
-  PencilIcon,
-  RotateCcwIcon,
-} from "lucide-react"
+import { CheckIcon, CopyIcon, PencilIcon, RotateCcwIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { MessageFooter } from "@/components/ui/message"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 export function AssistantActions({
   text,

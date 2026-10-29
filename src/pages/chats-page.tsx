@@ -14,7 +14,7 @@ const dateFormat = new Intl.DateTimeFormat("de-DE", {
 })
 
 export function ChatsPage() {
-  const conversations = useConversations()
+  const { data: conversations = [] } = useConversations()
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 p-4">

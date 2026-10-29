@@ -18,7 +18,6 @@ export const routes: RouteObject[] = [
       {
         path: "new",
         element: <NewConversationPage />,
-        handle: { title: "Dante" } satisfies RouteHandle,
       },
       {
         path: "chats",

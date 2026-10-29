@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
+import { useSidebarWidth } from "@/components/sidebar-resize-handle"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -19,7 +20,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
 
 export type RouteHandle = {
   title?: string
@@ -28,10 +33,13 @@ export type RouteHandle = {
 
 export function AppLayout() {
   const handle = useMatches().at(-1)?.handle as RouteHandle | undefined
+  const [sidebarWidth, setSidebarWidth] = useSidebarWidth()
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
+    <SidebarProvider
+      style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
+    >
+      <AppSidebar onWidthChange={setSidebarWidth} />
       <SidebarInset className="h-svh overflow-hidden">
         <header className="flex h-12 shrink-0 items-center gap-2 px-3">
           <SidebarTrigger />
