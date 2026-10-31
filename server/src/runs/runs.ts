@@ -37,9 +37,10 @@ export function createRuns(deps: {
     const save = ({ messages }: { messages: UIMessage[] }) =>
       store.save({ ...conversation, messages })
 
+    let turn: Awaited<ReturnType<Agent>> | undefined
     try {
-      const result = await agent(conversation.messages, run.abort.signal)
-      const stream = result.toUIMessageStream({
+      turn = await agent(conversation.messages, run.abort.signal)
+      const stream = turn.result.toUIMessageStream({
         originalMessages: conversation.messages,
         generateMessageId: generateId,
         sendReasoning: true,
@@ -52,6 +53,7 @@ export function createRuns(deps: {
       console.error(`run ${conversation.id} failed:`, error)
       broadcast(run, { type: "error", errorText: errorText(error) })
     } finally {
+      await turn?.close()
       for (const subscriber of run.subscribers) subscriber.close()
       active.delete(conversation.id)
       events.publish({ type: "run-finished", conversationId: conversation.id })

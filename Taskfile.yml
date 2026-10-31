@@ -19,7 +19,7 @@ tasks:
 
   dev:
     desc: Run the web app and the server together with live reload
-    deps: [dev:web, dev:server]
+    deps: [dev:web, dev:server, llama]
 
   dev:web:
     desc: Run the Vite dev server (proxies /api to the server)
@@ -29,6 +29,11 @@ tasks:
     desc: Run the API server in watch mode
     dir: server
     cmd: pnpm dev
+
+  llama:
+    desc: Run llama-server with the models from llama.cpp/models.ini
+    # Through bash, because Windows can't execute .sh files directly.
+    cmd: bash llama.cpp/run.sh {{.CLI_ARGS}}
 
   build:
     desc: Build the web app into dist/

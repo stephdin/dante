@@ -1,0 +1,4 @@
+# Unpacked llama.cpp releases and model files are too big for git.
+llama-*/
+models/*
+!models/models_here.txt

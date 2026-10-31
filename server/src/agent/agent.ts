@@ -7,6 +7,7 @@ import {
   type LanguageModel,
   type UIMessage,
 } from "ai"
+import { connectMcp } from "./mcp.ts"
 
 // Configured through env vars for now; this moves into the settings later.
 function createModel(): LanguageModel {
@@ -34,15 +35,26 @@ function createModel(): LanguageModel {
 
 export type Agent = typeof streamAgent
 
-/** One agent turn: the AI SDK runs the tool loop until the model is done. */
+/**
+ * One agent turn: the AI SDK runs the tool loop until the model is done.
+ * The caller must call `close` once the stream has ended.
+ */
 export async function streamAgent(
   messages: UIMessage[],
   abortSignal: AbortSignal
 ) {
-  return streamText({
-    model: createModel(),
-    messages: await convertToModelMessages(messages),
-    stopWhen: isStepCount(20),
-    abortSignal,
-  })
+  const mcp = await connectMcp()
+  try {
+    const result = streamText({
+      model: createModel(),
+      messages: await convertToModelMessages(messages),
+      tools: mcp.tools,
+      stopWhen: isStepCount(20),
+      abortSignal,
+    })
+    return { result, close: mcp.close }
+  } catch (error) {
+    await mcp.close()
+    throw error
+  }
 }

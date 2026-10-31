@@ -5,7 +5,7 @@ import type { UIMessage } from "ai"
 import { Markdown } from "@/components/markdown"
 import { AssistantActions, UserActions } from "@/components/message-actions"
 import { PromptInput } from "@/components/prompt-input"
-import { Reasoning } from "@/components/reasoning"
+import { getTraceParts, MessageTrace } from "@/components/message-trace"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Message, MessageContent } from "@/components/ui/message"
 import {
@@ -124,12 +124,10 @@ function AssistantMessage({
   onRetry?: () => void
 }) {
   const text = getMessageText(message)
-  const reasoning = message.parts.filter((part) => part.type === "reasoning")
-
   return (
     <Message>
       <MessageContent>
-        <Reasoning parts={reasoning} streaming={streaming} />
+        <MessageTrace parts={getTraceParts(message)} streaming={streaming} />
         <Markdown streaming={streaming}>{text}</Markdown>
         {!streaming && <AssistantActions text={text} onRetry={onRetry} />}
       </MessageContent>
