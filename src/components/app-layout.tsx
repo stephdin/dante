@@ -1,18 +1,10 @@
 import { Outlet, useMatches } from "react-router"
 import type { Chat } from "@ai-sdk/react"
 import type { UIMessage } from "ai"
-import { EllipsisVerticalIcon, FileDownIcon, FileUpIcon } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { ConversationMenu } from "@/components/conversation-menu"
 import { useSidebarWidth } from "@/components/sidebar-resize-handle"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   SidebarInset,
   SidebarProvider,
@@ -22,7 +14,7 @@ import { useConversationTitle } from "@/lib/conversations"
 
 export type RouteHandle = {
   title?: string
-  menu?: "conversation" | "settings"
+  menu?: "conversation"
 }
 
 export function AppLayout() {
@@ -46,7 +38,8 @@ export function AppLayout() {
             // The conversation route's loader returns its live Chat.
             <ConversationMenu chat={match!.loaderData as Chat<UIMessage>} />
           ) : (
-            <SettingsMenu show={handle?.menu === "settings"} />
+            // Keep the slot so the title stays centered.
+            <div className="size-7" />
           )}
         </header>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -54,31 +47,5 @@ export function AppLayout() {
         </div>
       </SidebarInset>
     </SidebarProvider>
-  )
-}
-
-// Menu actions are placeholders for now.
-function SettingsMenu({ show }: { show: boolean }) {
-  if (!show) {
-    // Keep the slot so the title stays centered.
-    return <div className="size-7" />
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={<Button variant="ghost" size="icon-sm" aria-label="Aktionen" />}
-      >
-        <EllipsisVerticalIcon />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-auto">
-        <DropdownMenuItem>
-          <FileUpIcon /> Konfiguration importieren
-        </DropdownMenuItem>
-        <DropdownMenuItem>
-          <FileDownIcon /> Konfiguration exportieren
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   )
 }

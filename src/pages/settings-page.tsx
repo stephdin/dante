@@ -1,9 +1,8 @@
-import { Link } from "react-router"
-import { ChevronRightIcon, PlusIcon } from "lucide-react"
-
 import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
-import { settingsSections, type SettingsKind } from "@/lib/mock-data"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useSetToolEnabled, useTools } from "@/lib/tools"
 
 const themes = [
   { value: "light", label: "Hell" },
@@ -15,9 +14,7 @@ export function SettingsPage() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-4">
       <ThemeSection />
-      {(Object.keys(settingsSections) as SettingsKind[]).map((kind) => (
-        <SettingsSection key={kind} kind={kind} />
-      ))}
+      <ToolsSection />
     </div>
   )
 }
@@ -43,34 +40,43 @@ function ThemeSection() {
   )
 }
 
-function SettingsSection({ kind }: { kind: SettingsKind }) {
-  const { title, items } = settingsSections[kind]
+function ToolsSection() {
+  const { data: tools, isError } = useTools()
+  const setEnabled = useSetToolEnabled()
 
   return (
     <section className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <h2 className="font-medium">{title}</h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          render={<Link to={`/settings/${kind}/new`} />}
-        >
-          <PlusIcon /> Hinzufügen
-        </Button>
+      <div>
+        <h2 className="font-medium">Tools</h2>
+        <p className="text-sm text-muted-foreground">
+          Eingeschaltete Tools werden dem Modell in jedem Chat angeboten.
+        </p>
       </div>
-      {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Noch keine Einträge.</p>
+      {isError ? (
+        <p className="text-sm text-destructive">
+          Die Tools konnten nicht geladen werden.
+        </p>
+      ) : !tools ? (
+        <Skeleton className="h-14 rounded-lg" />
       ) : (
         <ul className="divide-y rounded-lg border">
-          {items.map((item) => (
-            <li key={item.id}>
-              <Link
-                to={`/settings/${kind}/${item.id}`}
-                className="flex items-center justify-between px-3 py-2 text-sm hover:bg-muted/50"
-              >
-                {item.name}
-                <ChevronRightIcon className="size-4 text-muted-foreground" />
-              </Link>
+          {tools.map((tool) => (
+            <li key={tool.id}>
+              <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5 hover:bg-muted/50">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={tool.enabled}
+                  onCheckedChange={(enabled) =>
+                    setEnabled.mutate({ id: tool.id, enabled })
+                  }
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium">{tool.label}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {tool.description}
+                  </span>
+                </span>
+              </label>
             </li>
           ))}
         </ul>

@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server"
 import { generateTitle, streamAgent } from "./agent/agent.ts"
+import { createBuiltinTools } from "./agent/tools/builtin-tools.ts"
 import { createEventBus } from "./events/bus.ts"
 import { createApi } from "./http/api.ts"
 import { createRuns } from "./runs/runs.ts"
@@ -10,7 +11,13 @@ const events = createEventBus()
 const runs = createRuns({
   store,
   events,
-  agent: streamAgent,
+  // Read the settings per run, so a changed checkbox applies to the next answer.
+  agent: ({ id, messages }, abortSignal) =>
+    streamAgent(
+      messages,
+      abortSignal,
+      createBuiltinTools(store.toolStates(), { store, conversationId: id })
+    ),
   generateTitle,
 })
 const app = createApi({

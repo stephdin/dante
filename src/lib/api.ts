@@ -54,3 +54,22 @@ export async function deleteConversation(id: string) {
 export async function stopRun(id: string) {
   await request(`/chat/${encodeURIComponent(id)}/stop`, { method: "POST" })
 }
+
+export type BuiltinTool = {
+  id: string
+  label: string
+  description: string
+  enabled: boolean
+}
+
+export async function listTools(): Promise<BuiltinTool[]> {
+  return (await request("/tools")).json()
+}
+
+export async function setToolEnabled(id: string, enabled: boolean) {
+  await request(`/tools/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  })
+}

@@ -8,9 +8,13 @@ import {
   validateUIMessages,
   type UIMessage,
 } from "ai"
+import {
+  builtinToolStates,
+  builtinTools,
+} from "../agent/tools/builtin-tools.ts"
 import type { EventBus } from "../events/bus.ts"
 import type { Runs } from "../runs/runs.ts"
-import type { ConversationStore } from "../store/store.ts"
+import type { ConversationStore, ToolSettingsStore } from "../store/store.ts"
 
 type ChatRequest = {
   id: string
@@ -20,7 +24,7 @@ type ChatRequest = {
 }
 
 export function createApi(deps: {
-  store: ConversationStore
+  store: ConversationStore & ToolSettingsStore
   runs: Runs
   events: EventBus
   token?: string
@@ -74,6 +78,23 @@ export function createApi(deps: {
     runs.stop(id)
     if (!store.delete(id)) return c.json({ error: "not found" }, 404)
     events.publish({ type: "conversations-changed" })
+    return c.body(null, 204)
+  })
+
+  // ── Built-in tools ────────────────────────────────────────────────────────
+
+  app.get("/tools", (c) => c.json(builtinToolStates(store.toolStates())))
+
+  app.patch("/tools/:id", async (c) => {
+    const id = c.req.param("id")
+    if (!builtinTools.some((tool) => tool.id === id)) {
+      return c.json({ error: "not found" }, 404)
+    }
+    const { enabled } = await c.req.json<{ enabled?: unknown }>()
+    if (typeof enabled !== "boolean") {
+      return c.json({ error: "enabled required" }, 400)
+    }
+    store.setToolEnabled(id, enabled)
     return c.body(null, 204)
   })
 

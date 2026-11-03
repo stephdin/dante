@@ -6,6 +6,7 @@ import {
   isStepCount,
   streamText,
   type LanguageModel,
+  type ToolSet,
   type UIMessage,
 } from "ai"
 import { connectMcp } from "./mcp.ts"
@@ -34,7 +35,11 @@ function createModel(): LanguageModel {
   })(DANTE_MODEL_ID)
 }
 
-export type Agent = typeof streamAgent
+/** Runs a turn for a conversation; index.ts adds the built-in tools. */
+export type Agent = (
+  conversation: { id: string; messages: UIMessage[] },
+  abortSignal: AbortSignal
+) => ReturnType<typeof streamAgent>
 export type TitleGenerator = typeof generateTitle
 
 /**
@@ -43,14 +48,16 @@ export type TitleGenerator = typeof generateTitle
  */
 export async function streamAgent(
   messages: UIMessage[],
-  abortSignal: AbortSignal
+  abortSignal: AbortSignal,
+  builtinTools: ToolSet = {}
 ) {
   const mcp = await connectMcp()
   try {
     const result = streamText({
       model: createModel(),
       messages: await convertToModelMessages(messages),
-      tools: mcp.tools,
+      // Built-in tools win if an MCP server uses the same name.
+      tools: { ...mcp.tools, ...builtinTools },
       stopWhen: isStepCount(20),
       abortSignal,
     })
@@ -95,5 +102,8 @@ export async function generateTitle(prompt: string) {
     .split(/<\/?think>|\n/)
     .map((piece) => piece.replace(/^["'„“*#\s]+|["'“”*.\s]+$/g, ""))
     .find(Boolean)
-  return title?.slice(0, 80)
+  // A title that talks about "the title" is the model thinking out loud;
+  // then the placeholder is the better title.
+  if (!title || /title/i.test(title)) return undefined
+  return title.slice(0, 80)
 }

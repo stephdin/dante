@@ -1,12 +1,12 @@
 import { DatabaseSync } from "node:sqlite"
 import type { UIMessage } from "ai"
-import type { ConversationStore } from "./store.ts"
+import type { ConversationStore, ToolSettingsStore } from "./store.ts"
 
 type Row = { id: string; title: string; messages: string; updated_at: string }
 
 export function createSqliteStore(
   path: string
-): ConversationStore & { close(): void } {
+): ConversationStore & ToolSettingsStore & { close(): void } {
   const db = new DatabaseSync(path)
   db.exec(`
     PRAGMA journal_mode = WAL;
@@ -15,6 +15,10 @@ export function createSqliteStore(
       title      TEXT NOT NULL,
       messages   TEXT NOT NULL,
       updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS tool_settings (
+      id      TEXT PRIMARY KEY,
+      enabled INTEGER NOT NULL
     );
   `)
 
@@ -36,6 +40,11 @@ export function createSqliteStore(
     "UPDATE conversations SET title = ? WHERE id = ? AND title = ?"
   )
   const deleteQuery = db.prepare("DELETE FROM conversations WHERE id = ?")
+  const toolStatesQuery = db.prepare("SELECT id, enabled FROM tool_settings")
+  const setToolQuery = db.prepare(`
+    INSERT INTO tool_settings (id, enabled) VALUES (?, ?)
+    ON CONFLICT (id) DO UPDATE SET enabled = excluded.enabled
+  `)
 
   return {
     list: () =>
@@ -66,6 +75,15 @@ export function createSqliteStore(
     replaceTitle: (id, from, to) =>
       replaceTitleQuery.run(to, id, from).changes > 0,
     delete: (id) => deleteQuery.run(id).changes > 0,
+    toolStates: () =>
+      new Map(
+        (toolStatesQuery.all() as { id: string; enabled: number }[]).map(
+          (row) => [row.id, row.enabled === 1]
+        )
+      ),
+    setToolEnabled: (id, enabled) => {
+      setToolQuery.run(id, enabled ? 1 : 0)
+    },
     close: () => db.close(),
   }
 }

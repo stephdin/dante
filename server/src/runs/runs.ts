@@ -1,5 +1,6 @@
 import { generateId, type UIMessage, type UIMessageChunk } from "ai"
 import type { Agent, TitleGenerator } from "../agent/agent.ts"
+import { messageText } from "../agent/message-text.ts"
 import type { EventBus } from "../events/bus.ts"
 import type { Conversation, ConversationStore } from "../store/store.ts"
 
@@ -40,7 +41,7 @@ export function createRuns(deps: {
 
     let turn: Awaited<ReturnType<Agent>> | undefined
     try {
-      turn = await agent(conversation.messages, run.abort.signal)
+      turn = await agent(conversation, run.abort.signal)
       const stream = turn.result.toUIMessageStream({
         originalMessages: conversation.messages,
         generateMessageId: generateId,
@@ -69,7 +70,7 @@ export function createRuns(deps: {
     messages,
   }: Omit<Conversation, "updatedAt">) {
     try {
-      const title = await generateTitle(textOf(messages[0]))
+      const title = await generateTitle(messageText(messages[0]))
       if (title && store.replaceTitle(id, placeholder, title)) {
         events.publish({ type: "conversations-changed" })
       }
@@ -128,12 +129,6 @@ export function createRuns(deps: {
       await Promise.all(runs.map((run) => run.done))
     },
   }
-}
-
-function textOf(message: UIMessage) {
-  return message.parts
-    .flatMap((part) => (part.type === "text" ? [part.text] : []))
-    .join("")
 }
 
 function errorText(error: unknown) {

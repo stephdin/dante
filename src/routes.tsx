@@ -5,10 +5,7 @@ import { loadChat } from "@/lib/chat"
 import { ChatsPage } from "@/pages/chats-page"
 import { ConversationPage } from "@/pages/conversation-page"
 import { NewConversationPage } from "@/pages/new-conversation-page"
-import { SettingsFormPage } from "@/pages/settings-form-page"
 import { SettingsPage } from "@/pages/settings-page"
-
-const settingsHandle: RouteHandle = { title: "Einstellungen" }
 
 export const routes: RouteObject[] = [
   {
@@ -33,17 +30,7 @@ export const routes: RouteObject[] = [
       {
         path: "settings",
         element: <SettingsPage />,
-        handle: { ...settingsHandle, menu: "settings" } satisfies RouteHandle,
-      },
-      {
-        path: "settings/:kind/new",
-        element: <SettingsFormPage />,
-        handle: settingsHandle,
-      },
-      {
-        path: "settings/:kind/:id",
-        element: <SettingsFormPage />,
-        handle: settingsHandle,
+        handle: { title: "Einstellungen" } satisfies RouteHandle,
       },
       { path: "*", element: <Navigate to="/new" replace /> },
     ],

@@ -19,3 +19,9 @@ export interface ConversationStore {
   replaceTitle(id: string, from: string, to: string): boolean
   delete(id: string): boolean
 }
+
+/** Which built-in tools are switched on. Unknown ids use the tool's default. */
+export interface ToolSettingsStore {
+  toolStates(): Map<string, boolean>
+  setToolEnabled(id: string, enabled: boolean): void
+}
