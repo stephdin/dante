@@ -3,6 +3,7 @@ import type { ConversationStore } from "../../store/store.ts"
 import { calculatorTool } from "./calculator.ts"
 import { datetimeTool } from "./datetime.ts"
 import { searchChatsTool } from "./search-chats.ts"
+import { tagesschauTools } from "./tagesschau.ts"
 
 /** What a tool may need from the run it is created for. */
 export type ToolContext = {
@@ -16,12 +17,13 @@ export type BuiltinTool = {
   description: string
   /** Whether the tool is on before the user has touched its checkbox. */
   enabledByDefault: boolean
-  create: (context: ToolContext) => ToolSet[string]
+  /** One checkbox can stand for several tools, keyed by the name the model sees. */
+  create: (context: ToolContext) => ToolSet
 }
 
 /**
  * Tools that ship with Dante. The settings decide which of them every run
- * gets; MCP tools come on top. The id is also the name the model sees.
+ * gets; MCP tools come on top.
  */
 export const builtinTools: BuiltinTool[] = [
   {
@@ -29,7 +31,7 @@ export const builtinTools: BuiltinTool[] = [
     label: "Datum & Uhrzeit",
     description: "Das Modell kann das aktuelle Datum und die Uhrzeit abfragen.",
     enabledByDefault: true,
-    create: datetimeTool,
+    create: () => ({ datetime: datetimeTool() }),
   },
   {
     id: "calculator",
@@ -37,7 +39,7 @@ export const builtinTools: BuiltinTool[] = [
     description:
       "Das Modell rechnet mit einem Rechner, statt sich auf sein Kopfrechnen zu verlassen.",
     enabledByDefault: true,
-    create: calculatorTool,
+    create: () => ({ calculator: calculatorTool() }),
   },
   {
     id: "search_chats",
@@ -45,7 +47,16 @@ export const builtinTools: BuiltinTool[] = [
     description:
       "Das Modell kann in deinen früheren Chats nach Stichworten suchen.",
     enabledByDefault: true,
-    create: searchChatsTool,
+    create: (context) => ({ search_chats: searchChatsTool(context) }),
+  },
+  {
+    id: "tagesschau",
+    label: "Tagesschau",
+    description:
+      "Das Modell kann aktuelle Nachrichten und Artikel von tagesschau.de abrufen.",
+    // Off until chosen, since it sends requests to an outside service.
+    enabledByDefault: false,
+    create: tagesschauTools,
   },
 ]
 
@@ -63,9 +74,10 @@ export function createBuiltinTools(
   states: Map<string, boolean>,
   context: ToolContext
 ): ToolSet {
-  return Object.fromEntries(
-    builtinTools
+  return Object.assign(
+    {},
+    ...builtinTools
       .filter((tool) => states.get(tool.id) ?? tool.enabledByDefault)
-      .map((tool) => [tool.id, tool.create(context)])
+      .map((tool) => tool.create(context))
   )
 }
