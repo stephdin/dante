@@ -19,6 +19,11 @@ export function useConversations() {
   return useQuery(conversationsQuery)
 }
 
+export function useConversationTitle(id: string | undefined) {
+  const { data } = useConversations()
+  return data?.find((conversation) => conversation.id === id)?.title
+}
+
 // Apply a change to the cached list right away and roll it back if the
 // request fails. The server's "conversations-changed" event refetches anyway.
 function useListMutation<TVariables>(

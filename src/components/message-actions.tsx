@@ -17,7 +17,7 @@ export function AssistantActions({
   onRetry?: () => void
 }) {
   return (
-    <MessageFooter className="-ms-2 gap-0.5 px-0">
+    <MessageFooter className="-ms-1 gap-0.5 px-0">
       <CopyAction text={text} />
       {onRetry && (
         <Action label="Erneut versuchen" onClick={onRetry}>
@@ -36,7 +36,7 @@ export function UserActions({
   onEdit: () => void
 }) {
   return (
-    <MessageFooter className="gap-0.5">
+    <MessageFooter className="-me-1 gap-0.5 px-0">
       <CopyAction text={text} />
       <Action label="Bearbeiten" onClick={onEdit}>
         <PencilIcon />

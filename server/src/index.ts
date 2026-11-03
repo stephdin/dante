@@ -1,5 +1,5 @@
 import { serve } from "@hono/node-server"
-import { streamAgent } from "./agent/agent.ts"
+import { generateTitle, streamAgent } from "./agent/agent.ts"
 import { createEventBus } from "./events/bus.ts"
 import { createApi } from "./http/api.ts"
 import { createRuns } from "./runs/runs.ts"
@@ -7,7 +7,12 @@ import { createSqliteStore } from "./store/sqlite.ts"
 
 const store = createSqliteStore(process.env.DANTE_DB_PATH ?? "dante.db")
 const events = createEventBus()
-const runs = createRuns({ store, events, agent: streamAgent })
+const runs = createRuns({
+  store,
+  events,
+  agent: streamAgent,
+  generateTitle,
+})
 const app = createApi({
   store,
   runs,

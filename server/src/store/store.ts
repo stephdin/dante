@@ -15,5 +15,7 @@ export interface ConversationStore {
   get(id: string): Conversation | undefined
   save(conversation: Omit<Conversation, "updatedAt">): void
   rename(id: string, title: string): boolean
+  /** Renames only if the title is still `from`, so user renames win. */
+  replaceTitle(id: string, from: string, to: string): boolean
   delete(id: string): boolean
 }

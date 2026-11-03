@@ -50,6 +50,9 @@ export function ChatView({ chat }: { chat: Chat<UIMessage> }) {
                   <MessageScrollerItem
                     key={message.id}
                     messageId={message.id}
+                    // Room for the action buttons' negative margins, which
+                    // content-visibility would otherwise clip.
+                    className="-mx-2 px-2"
                     scrollAnchor={message.role === "user"}
                   >
                     {message.role === "user" ? (

@@ -32,6 +32,9 @@ export function createSqliteStore(
   const renameQuery = db.prepare(
     "UPDATE conversations SET title = ? WHERE id = ?"
   )
+  const replaceTitleQuery = db.prepare(
+    "UPDATE conversations SET title = ? WHERE id = ? AND title = ?"
+  )
   const deleteQuery = db.prepare("DELETE FROM conversations WHERE id = ?")
 
   return {
@@ -60,6 +63,8 @@ export function createSqliteStore(
       )
     },
     rename: (id, title) => renameQuery.run(title, id).changes > 0,
+    replaceTitle: (id, from, to) =>
+      replaceTitleQuery.run(to, id, from).changes > 0,
     delete: (id) => deleteQuery.run(id).changes > 0,
     close: () => db.close(),
   }

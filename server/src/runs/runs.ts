@@ -1,5 +1,5 @@
 import { generateId, type UIMessage, type UIMessageChunk } from "ai"
-import type { Agent } from "../agent/agent.ts"
+import type { Agent, TitleGenerator } from "../agent/agent.ts"
 import type { EventBus } from "../events/bus.ts"
 import type { Conversation, ConversationStore } from "../store/store.ts"
 
@@ -21,8 +21,9 @@ export function createRuns(deps: {
   store: ConversationStore
   events: EventBus
   agent: Agent
+  generateTitle: TitleGenerator
 }) {
-  const { store, events, agent } = deps
+  const { store, events, agent, generateTitle } = deps
   const active = new Map<string, Run>()
 
   function broadcast(run: Run, chunk: UIMessageChunk) {
@@ -61,6 +62,23 @@ export function createRuns(deps: {
     }
   }
 
+  /** Replaces the placeholder title with a summary of the first prompt. */
+  async function retitle({
+    id,
+    title: placeholder,
+    messages,
+  }: Omit<Conversation, "updatedAt">) {
+    try {
+      const title = await generateTitle(textOf(messages[0]))
+      if (title && store.replaceTitle(id, placeholder, title)) {
+        events.publish({ type: "conversations-changed" })
+      }
+    } catch (error) {
+      // Also lands here if the store was closed on shutdown in the meantime.
+      console.error(`titling ${id} failed:`, error)
+    }
+  }
+
   return {
     isRunning: (id: string) => active.has(id),
 
@@ -77,6 +95,8 @@ export function createRuns(deps: {
       }
       active.set(conversation.id, run)
       run.done = execute(run, conversation)
+      // Runs alongside the answer, so the title shows up early.
+      if (conversation.messages.length === 1) void retitle(conversation)
       events.publish({ type: "run-started", conversationId: conversation.id })
       events.publish({ type: "conversations-changed" })
     },
@@ -108,6 +128,12 @@ export function createRuns(deps: {
       await Promise.all(runs.map((run) => run.done))
     },
   }
+}
+
+function textOf(message: UIMessage) {
+  return message.parts
+    .flatMap((part) => (part.type === "text" ? [part.text] : []))
+    .join("")
 }
 
 function errorText(error: unknown) {

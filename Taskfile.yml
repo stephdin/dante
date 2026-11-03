@@ -23,7 +23,7 @@ tasks:
 
   dev:web:
     desc: Run the Vite dev server (proxies /api to the server)
-    cmd: pnpm dev
+    cmd: pnpm dev --host
 
   dev:server:
     desc: Run the API server in watch mode
@@ -32,8 +32,9 @@ tasks:
 
   llama:
     desc: Run llama-server with the models from llama.cpp/models.ini
-    # Through bash, because Windows can't execute .sh files directly.
-    cmd: bash llama.cpp/run.sh {{.CLI_ARGS}}
+    dir: llama.cpp
+    # .\ because cmd skips the current folder if NoDefaultCurrentDirectoryInExePath is set.
+    cmd: cmd /c '.\run.bat' {{.CLI_ARGS}}
 
   build:
     desc: Build the web app into dist/
