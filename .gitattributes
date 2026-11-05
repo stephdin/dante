@@ -1,2 +1,6 @@
-# Shell scripts must keep LF endings or bash fails on Windows checkouts.
-*.sh text eol=lf
+# Always LF, whatever core.autocrlf says, so Prettier (endOfLine: lf) passes
+# on Windows checkouts too.
+* text=auto eol=lf
+
+# cmd.exe can misread LF-only batch files (labels, goto).
+*.bat text eol=crlf
