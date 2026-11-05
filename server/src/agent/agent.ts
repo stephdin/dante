@@ -53,15 +53,16 @@ export async function streamAgent(
 ) {
   const mcp = await connectMcp()
   try {
+    // Built-in tools win if an MCP server uses the same name.
+    const tools = { ...mcp.tools, ...builtinTools }
     const result = streamText({
       model: createModel(),
       messages: await convertToModelMessages(messages),
-      // Built-in tools win if an MCP server uses the same name.
-      tools: { ...mcp.tools, ...builtinTools },
+      tools,
       stopWhen: isStepCount(20),
       abortSignal,
     })
-    return { result, close: mcp.close }
+    return { result, tools, close: mcp.close }
   } catch (error) {
     await mcp.close()
     throw error
@@ -85,7 +86,7 @@ const titleRequest = (message: string) =>
 export async function generateTitle(prompt: string) {
   const { text } = await generateText({
     model: createModel(),
-    system: TITLE_SYSTEM,
+    instructions: TITLE_SYSTEM,
     prompt: titleRequest(prompt.slice(0, 2000)),
     maxOutputTokens: 40,
     temperature: 0.2,
@@ -104,6 +105,6 @@ export async function generateTitle(prompt: string) {
     .find(Boolean)
   // A title that talks about "the title" is the model thinking out loud;
   // then the placeholder is the better title.
-  if (!title || /title/i.test(title)) return undefined
+  if (!title || /\btitle\b/i.test(title)) return undefined
   return title.slice(0, 80)
 }

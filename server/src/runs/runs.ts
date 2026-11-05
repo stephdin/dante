@@ -1,4 +1,9 @@
-import { generateId, type UIMessage, type UIMessageChunk } from "ai"
+import {
+  generateId,
+  toUIMessageStream,
+  type UIMessage,
+  type UIMessageChunk,
+} from "ai"
 import type { Agent, TitleGenerator } from "../agent/agent.ts"
 import { messageText } from "../agent/message-text.ts"
 import type { EventBus } from "../events/bus.ts"
@@ -42,7 +47,9 @@ export function createRuns(deps: {
     let turn: Awaited<ReturnType<Agent>> | undefined
     try {
       turn = await agent(conversation, run.abort.signal)
-      const stream = turn.result.toUIMessageStream({
+      const stream = toUIMessageStream({
+        stream: turn.result.stream,
+        tools: turn.tools,
         originalMessages: conversation.messages,
         generateMessageId: generateId,
         sendReasoning: true,

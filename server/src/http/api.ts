@@ -12,6 +12,7 @@ import {
   builtinToolStates,
   builtinTools,
 } from "../agent/tools/builtin-tools.ts"
+import { messageText } from "../agent/message-text.ts"
 import type { EventBus } from "../events/bus.ts"
 import type { Runs } from "../runs/runs.ts"
 import type { ConversationStore, ToolSettingsStore } from "../store/store.ts"
@@ -166,11 +167,8 @@ function truncateForRegenerate(messages: UIMessage[], messageId?: string) {
 }
 
 function titleFrom(messages: UIMessage[]) {
-  const text = messages
-    .find((m) => m.role === "user")
-    ?.parts.flatMap((part) => (part.type === "text" ? [part.text] : []))
-    .join(" ")
-    .trim()
+  const first = messages.find((m) => m.role === "user")
+  const text = first && messageText(first).trim()
   if (!text) return "Neue Unterhaltung"
   return text.length > 60 ? `${text.slice(0, 60)}…` : text
 }
