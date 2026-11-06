@@ -1,4 +1,6 @@
 import { serve } from "@hono/node-server"
+import { serveStatic } from "@hono/node-server/serve-static"
+import { Hono } from "hono"
 import { generateTitle, streamAgent } from "./agent/agent.ts"
 import { createBuiltinTools } from "./agent/tools/builtin-tools.ts"
 import { createEventBus } from "./events/bus.ts"
@@ -20,12 +22,22 @@ const runs = createRuns({
     ),
   generateTitle,
 })
-const app = createApi({
-  store,
-  runs,
-  events,
-  token: process.env.DANTE_API_TOKEN,
-})
+const app = new Hono().route(
+  "/",
+  createApi({ store, runs, events, token: process.env.DANTE_API_TOKEN })
+)
+
+// In production (Docker) the server also serves the built web app. Unknown
+// non-API paths get index.html so client-side routes survive a reload.
+const staticDir = process.env.DANTE_STATIC_DIR
+if (staticDir) {
+  app.use("*", serveStatic({ root: staticDir }))
+  app.get("*", (c, next) =>
+    c.req.path.startsWith("/api/")
+      ? next()
+      : serveStatic({ root: staticDir, path: "index.html" })(c, next)
+  )
+}
 
 const port = Number(process.env.PORT ?? 3000)
 const server = serve({ fetch: app.fetch, port }, (info) => {

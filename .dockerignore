@@ -1,0 +1,31 @@
+# Installed / generated during the build
+**/node_modules
+dist
+
+# Local models — large and not needed in the image
+llama.cpp
+
+# Git
+.git
+
+# Environment files (contain API keys)
+**/.env
+
+# SQLite databases
+**/*.db
+**/*.db-wal
+**/*.db-shm
+
+# Logs
+logs
+*.log
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Docs
+README.md
+LICENSE
