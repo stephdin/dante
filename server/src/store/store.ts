@@ -25,3 +25,11 @@ export interface ToolSettingsStore {
   toolStates(): Map<string, boolean>
   setToolEnabled(id: string, enabled: boolean): void
 }
+
+/** Simple settings as text. A key that was never set is undefined. */
+export interface SettingsStore {
+  setting(key: string): string | undefined
+  setSetting(key: string, value: string): void
+  /** Back to the default the caller defines. */
+  deleteSetting(key: string): void
+}

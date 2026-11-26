@@ -1,9 +1,12 @@
 import type { ToolSet } from "ai"
 import type { ConversationStore } from "../../store/store.ts"
-import { calculatorTool } from "./calculator.ts"
+import { codeModeTool } from "./code-mode.ts"
 import { datetimeTool } from "./datetime.ts"
 import { searchChatsTool } from "./search-chats.ts"
 import { tagesschauTools } from "./tagesschau.ts"
+
+/** Tool name of code mode, which runs model-written code that calls the other tools. */
+export const CODE_MODE = "code_mode"
 
 /** What a tool may need from the run it is created for. */
 export type ToolContext = {
@@ -34,14 +37,6 @@ export const builtinTools: BuiltinTool[] = [
     create: () => ({ datetime: datetimeTool() }),
   },
   {
-    id: "calculator",
-    label: "Rechner",
-    description:
-      "Das Modell rechnet mit einem Rechner, statt sich auf sein Kopfrechnen zu verlassen.",
-    enabledByDefault: true,
-    create: () => ({ calculator: calculatorTool() }),
-  },
-  {
     id: "search_chats",
     label: "Chats durchsuchen",
     description:
@@ -57,6 +52,16 @@ export const builtinTools: BuiltinTool[] = [
     // Off until chosen, since it sends requests to an outside service.
     enabledByDefault: false,
     create: tagesschauTools,
+  },
+  {
+    id: CODE_MODE,
+    label: "Code-Modus",
+    description:
+      "Das Modell schreibt kleine Programme, um genau zu rechnen und die anderen Tools aufzurufen und ihre Ergebnisse zu verarbeiten. Sie laufen in einer abgeschotteten Sandbox.",
+    // On by default, since there is no separate calculator.
+    enabledByDefault: true,
+    // agent.ts lets it call every other tool of the run.
+    create: () => ({ [CODE_MODE]: codeModeTool() }),
   },
 ]
 

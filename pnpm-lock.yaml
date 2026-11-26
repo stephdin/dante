@@ -99,6 +99,9 @@ importers:
       '@ai-sdk/anthropic':
         specifier: ^4.0.109
         version: 4.0.109(zod@4.6.7)
+      '@ai-sdk/code-mode':
+        specifier: ~1.0.139
+        version: 1.0.139(ai@7.0.182(zod@4.6.7))(typescript@7.0.2)
       '@ai-sdk/mcp':
         specifier: ^2.0.105
         version: 2.0.105(zod@4.6.7)
@@ -132,6 +135,12 @@ packages:
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/code-mode@1.0.139':
+    resolution: {integrity: sha512-M4kXiNYFvUf2V2KhvZ2B4QSnIBWNKOQ1vzcetoNIrh/nqFUB1uTWkdDidPsnzEaP1J4x19PLcWodcVh8LOtgBA==}
+    engines: {node: '>=22.13.0'}
+    peerDependencies:
+      ai: 7.0.182
 
   '@ai-sdk/gateway@4.0.155':
     resolution: {integrity: sha512-8/LE3fvfCIX6WrtUV796xd0sHKEI8E0ctRpCHP4c+kzBBZYJ4x6W4qa3ODVV4UDsoJRk4ndAoTphcmv8qjrYiQ==}
@@ -2209,6 +2218,15 @@ packages:
   run-parallel@1.2.0:
     resolution: {integrity: sha512-5l4VyZR86LZ/lDxZTR6jqL8AFE2S0IFLMP26AbjsLVADxHdhB/c0GUsH+y39UfCi3dzz8OlQuPmnaJOMoDHQBA==}
 
+  run@2.1.13:
+    resolution: {integrity: sha512-Oza31vagvs4YIY6Z8p/SeRCfzFnJIwP7Vh1MF2Wg0ti30cosh/Gm5O8KGuLcIr+hVG52B/FdcV+AiDhJtQPzcg==}
+    engines: {node: '>=20.19.0'}
+    peerDependencies:
+      typescript: '>=5.1.6 <7'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   scheduler@0.28.0:
     resolution: {integrity: sha512-juorfCmIkIw8tT+p5BXSm6PJjQF/ycEYmKyzURCIt/RaZIhL+PulbQ9Yu2z1HdOJDdqDTlxA1+xKBmHXJsczAw==}
 
@@ -2519,6 +2537,13 @@ snapshots:
       '@ai-sdk/provider': 4.0.39
       '@ai-sdk/provider-utils': 5.0.84(zod@4.6.7)
       zod: 4.6.7
+
+  '@ai-sdk/code-mode@1.0.139(ai@7.0.182(zod@4.6.7))(typescript@7.0.2)':
+    dependencies:
+      ai: 7.0.182(zod@4.6.7)
+      run: 2.1.13(typescript@7.0.2)
+    transitivePeerDependencies:
+      - typescript
 
   '@ai-sdk/gateway@4.0.155(zod@4.6.7)':
     dependencies:
@@ -4569,6 +4594,10 @@ snapshots:
   run-parallel@1.2.0:
     dependencies:
       queue-microtask: 1.2.3
+
+  run@2.1.13(typescript@7.0.2):
+    optionalDependencies:
+      typescript: 7.0.2
 
   scheduler@0.28.0: {}
 

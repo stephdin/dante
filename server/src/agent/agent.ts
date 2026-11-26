@@ -1,15 +1,18 @@
 import { createAnthropic } from "@ai-sdk/anthropic"
+import { DIRECT_TOOL_CALL } from "@ai-sdk/code-mode"
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
 import {
   convertToModelMessages,
   generateText,
   isStepCount,
   streamText,
+  type Experimental_ToolCallers,
   type LanguageModel,
   type ToolSet,
   type UIMessage,
 } from "ai"
 import { connectMcp } from "./mcp.ts"
+import { CODE_MODE } from "./tools/builtin-tools.ts"
 
 // Configured through env vars for now; this moves into the settings later.
 function createModel(): LanguageModel {
@@ -49,7 +52,8 @@ export type TitleGenerator = typeof generateTitle
 export async function streamAgent(
   messages: UIMessage[],
   abortSignal: AbortSignal,
-  builtinTools: ToolSet = {}
+  builtinTools: ToolSet = {},
+  systemPrompt = ""
 ) {
   const mcp = await connectMcp()
   try {
@@ -57,8 +61,11 @@ export async function streamAgent(
     const tools = { ...mcp.tools, ...builtinTools }
     const result = streamText({
       model: createModel(),
+      // An empty prompt means none at all, not an empty system message.
+      instructions: systemPrompt.trim() || undefined,
       messages: await convertToModelMessages(messages),
       tools,
+      experimental_toolCallers: toolCallers(tools),
       stopWhen: isStepCount(20),
       abortSignal,
     })
@@ -67,6 +74,22 @@ export async function streamAgent(
     await mcp.close()
     throw error
   }
+}
+
+/**
+ * With code mode on, the model may call every other tool from code or, since
+ * small models often skip the code, directly. Without it, all tools keep the
+ * default of direct calls only.
+ */
+function toolCallers(tools: ToolSet) {
+  if (!(CODE_MODE in tools)) return undefined
+  // The type only allows callers it can see in TOOLS, and a plain ToolSet
+  // doesn't say that code_mode is one.
+  return Object.fromEntries(
+    Object.keys(tools)
+      .filter((name) => name !== CODE_MODE)
+      .map((name) => [name, [CODE_MODE, DIRECT_TOOL_CALL]])
+  ) as Experimental_ToolCallers<ToolSet>
 }
 
 const TITLE_SYSTEM =

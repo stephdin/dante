@@ -73,3 +73,29 @@ export async function setToolEnabled(id: string, enabled: boolean) {
     body: JSON.stringify({ enabled }),
   })
 }
+
+export type SystemPrompt = {
+  prompt: string
+  /** True while the user never changed it, so it follows the default. */
+  isDefault: boolean
+  defaultPrompt: string
+}
+
+const systemPromptPath = "/settings/system-prompt"
+
+export async function getSystemPrompt(): Promise<SystemPrompt> {
+  return (await request(systemPromptPath)).json()
+}
+
+export async function saveSystemPrompt(prompt: string): Promise<SystemPrompt> {
+  const response = await request(systemPromptPath, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt }),
+  })
+  return response.json()
+}
+
+export async function resetSystemPrompt(): Promise<SystemPrompt> {
+  return (await request(systemPromptPath, { method: "DELETE" })).json()
+}

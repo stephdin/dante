@@ -1,12 +1,16 @@
 import { DatabaseSync } from "node:sqlite"
 import type { UIMessage } from "ai"
-import type { ConversationStore, ToolSettingsStore } from "./store.ts"
+import type {
+  ConversationStore,
+  SettingsStore,
+  ToolSettingsStore,
+} from "./store.ts"
 
 type Row = { id: string; title: string; messages: string; updated_at: string }
 
 export function createSqliteStore(
   path: string
-): ConversationStore & ToolSettingsStore & { close(): void } {
+): ConversationStore & ToolSettingsStore & SettingsStore & { close(): void } {
   const db = new DatabaseSync(path)
   db.exec(`
     PRAGMA journal_mode = WAL;
@@ -19,6 +23,10 @@ export function createSqliteStore(
     CREATE TABLE IF NOT EXISTS tool_settings (
       id      TEXT PRIMARY KEY,
       enabled INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS settings (
+      key   TEXT PRIMARY KEY,
+      value TEXT NOT NULL
     );
   `)
 
@@ -45,6 +53,12 @@ export function createSqliteStore(
     INSERT INTO tool_settings (id, enabled) VALUES (?, ?)
     ON CONFLICT (id) DO UPDATE SET enabled = excluded.enabled
   `)
+  const settingQuery = db.prepare("SELECT value FROM settings WHERE key = ?")
+  const setSettingQuery = db.prepare(`
+    INSERT INTO settings (key, value) VALUES (?, ?)
+    ON CONFLICT (key) DO UPDATE SET value = excluded.value
+  `)
+  const deleteSettingQuery = db.prepare("DELETE FROM settings WHERE key = ?")
 
   return {
     list: () =>
@@ -83,6 +97,14 @@ export function createSqliteStore(
       ),
     setToolEnabled: (id, enabled) => {
       setToolQuery.run(id, enabled ? 1 : 0)
+    },
+    setting: (key) =>
+      (settingQuery.get(key) as { value: string } | undefined)?.value,
+    setSetting: (key, value) => {
+      setSettingQuery.run(key, value)
+    },
+    deleteSetting: (key) => {
+      deleteSettingQuery.run(key)
     },
     close: () => db.close(),
   }

@@ -1,5 +1,12 @@
 import { useState, type ReactNode } from "react"
-import type { DynamicToolUIPart, ReasoningUIPart, UIMessage } from "ai"
+import {
+  getToolOrDynamicToolName,
+  isToolUIPart,
+  type DynamicToolUIPart,
+  type ReasoningUIPart,
+  type ToolUIPart,
+  type UIMessage,
+} from "ai"
 
 import {
   Trace,
@@ -10,12 +17,13 @@ import {
   TraceTitle,
 } from "@/components/ui/trace"
 
-type TracePart = ReasoningUIPart | DynamicToolUIPart
+// Built-in and MCP tools are dynamic; code mode is a static tool.
+type ToolPart = ToolUIPart | DynamicToolUIPart
+type TracePart = ReasoningUIPart | ToolPart
 
 export function getTraceParts(message: UIMessage) {
   return message.parts.filter(
-    (part): part is TracePart =>
-      part.type === "reasoning" || part.type === "dynamic-tool"
+    (part): part is TracePart => part.type === "reasoning" || isToolUIPart(part)
   )
 }
 
@@ -63,26 +71,42 @@ function ReasoningLine({
   )
 }
 
-function ToolLine({
-  part,
-  streaming,
-}: {
-  part: DynamicToolUIPart
-  streaming: boolean
-}) {
+function ToolLine({ part, streaming }: { part: ToolPart; streaming: boolean }) {
   const running =
     streaming &&
     (part.state === "input-streaming" || part.state === "input-available")
   const output = toolOutputText(part)
   const failed = part.state === "output-error" || isErrorResult(part.output)
+  const status = running ? "running" : failed ? "error" : undefined
+
+  // The program is the interesting part of a code mode call, so it goes into
+  // the details instead of the title.
+  if (getToolOrDynamicToolName(part) === "code_mode") {
+    const code = (part.input as { js?: unknown } | undefined)?.js
+    return (
+      <TraceItem
+        title={running ? "Führt Code aus…" : "Code ausgeführt"}
+        status={status}
+      >
+        {typeof code === "string" && (
+          <pre className="max-h-64 overflow-auto font-mono text-xs whitespace-pre-wrap">
+            {code}
+          </pre>
+        )}
+        {output && (
+          <pre className="mt-2 max-h-64 overflow-auto font-sans text-xs whitespace-pre-wrap">
+            {output}
+          </pre>
+        )}
+      </TraceItem>
+    )
+  }
+
   const summary = inputSummary(part.input)
-  const label = part.title ?? part.toolName
+  const label = part.title ?? getToolOrDynamicToolName(part)
 
   return (
-    <TraceItem
-      title={summary ? `${label}: ${summary}` : label}
-      status={running ? "running" : failed ? "error" : undefined}
-    >
+    <TraceItem title={summary ? `${label}: ${summary}` : label} status={status}>
       {output && (
         <pre className="max-h-64 overflow-auto font-sans text-xs whitespace-pre-wrap">
           {output}
@@ -133,7 +157,7 @@ function isErrorResult(output: unknown) {
   return (output as McpResult | undefined)?.isError === true
 }
 
-function toolOutputText(part: DynamicToolUIPart) {
+function toolOutputText(part: ToolPart) {
   if (part.state === "output-error") return part.errorText
   if (part.state !== "output-available") return undefined
   const text = (part.output as McpResult | undefined)?.content

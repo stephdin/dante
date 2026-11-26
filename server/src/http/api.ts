@@ -13,9 +13,20 @@ import {
   builtinTools,
 } from "../agent/tools/builtin-tools.ts"
 import { messageText } from "../agent/message-text.ts"
+import {
+  DEFAULT_SYSTEM_PROMPT,
+  MAX_SYSTEM_PROMPT_LENGTH,
+  resetSystemPrompt,
+  setSystemPrompt,
+  systemPrompt,
+} from "../agent/system-prompt.ts"
 import type { EventBus } from "../events/bus.ts"
 import type { Runs } from "../runs/runs.ts"
-import type { ConversationStore, ToolSettingsStore } from "../store/store.ts"
+import type {
+  ConversationStore,
+  SettingsStore,
+  ToolSettingsStore,
+} from "../store/store.ts"
 
 type ChatRequest = {
   id: string
@@ -25,7 +36,7 @@ type ChatRequest = {
 }
 
 export function createApi(deps: {
-  store: ConversationStore & ToolSettingsStore
+  store: ConversationStore & ToolSettingsStore & SettingsStore
   runs: Runs
   events: EventBus
   token?: string
@@ -97,6 +108,33 @@ export function createApi(deps: {
     }
     store.setToolEnabled(id, enabled)
     return c.body(null, 204)
+  })
+
+  // ── System prompt ─────────────────────────────────────────────────────────
+
+  // The default comes along so the UI can show what a reset brings back.
+  const systemPromptResponse = () => ({
+    ...systemPrompt(store),
+    defaultPrompt: DEFAULT_SYSTEM_PROMPT,
+  })
+
+  app.get("/settings/system-prompt", (c) => c.json(systemPromptResponse()))
+
+  app.put("/settings/system-prompt", async (c) => {
+    const { prompt } = await c.req.json<{ prompt?: unknown }>()
+    if (typeof prompt !== "string") {
+      return c.json({ error: "prompt required" }, 400)
+    }
+    if (prompt.length > MAX_SYSTEM_PROMPT_LENGTH) {
+      return c.json({ error: "prompt too long" }, 400)
+    }
+    setSystemPrompt(store, prompt)
+    return c.json(systemPromptResponse())
+  })
+
+  app.delete("/settings/system-prompt", (c) => {
+    resetSystemPrompt(store)
+    return c.json(systemPromptResponse())
   })
 
   // ── Chat (AI SDK transport protocol) ──────────────────────────────────────

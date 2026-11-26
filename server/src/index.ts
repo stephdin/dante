@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server"
 import { serveStatic } from "@hono/node-server/serve-static"
 import { Hono } from "hono"
 import { generateTitle, streamAgent } from "./agent/agent.ts"
+import { systemPrompt } from "./agent/system-prompt.ts"
 import { createBuiltinTools } from "./agent/tools/builtin-tools.ts"
 import { createEventBus } from "./events/bus.ts"
 import { createApi } from "./http/api.ts"
@@ -13,12 +14,13 @@ const events = createEventBus()
 const runs = createRuns({
   store,
   events,
-  // Read the settings per run, so a changed checkbox applies to the next answer.
+  // Read the settings per run, so a change applies to the next answer.
   agent: ({ id, messages }, abortSignal) =>
     streamAgent(
       messages,
       abortSignal,
-      createBuiltinTools(store.toolStates(), { store, conversationId: id })
+      createBuiltinTools(store.toolStates(), { store, conversationId: id }),
+      systemPrompt(store).prompt
     ),
   generateTitle,
 })
