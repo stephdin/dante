@@ -1,6 +1,7 @@
 import { createMathPlugin } from "@streamdown/math"
 import "katex/dist/katex.min.css"
 import { defaultComponents, Streamdown, type Components } from "streamdown"
+import "streamdown/styles.css"
 
 import {
   CodeBlock,
@@ -26,6 +27,7 @@ export function Markdown({
   return (
     <Streamdown
       mode={streaming ? "streaming" : "static"}
+      animated
       isAnimating={streaming}
       components={components}
       plugins={plugins}
