@@ -1,3 +1,5 @@
+import { createMathPlugin } from "@streamdown/math"
+import "katex/dist/katex.min.css"
 import { defaultComponents, Streamdown, type Components } from "streamdown"
 
 import {
@@ -26,11 +28,14 @@ export function Markdown({
       mode={streaming ? "streaming" : "static"}
       isAnimating={streaming}
       components={components}
+      plugins={plugins}
     >
       {children}
     </Streamdown>
   )
 }
+
+const plugins = { math: createMathPlugin({ singleDollarTextMath: true }) }
 
 // Streamdown passes both inline and fenced code to `code`; fenced blocks are
 // marked with `data-block`. Those go to our Code Block, inline code keeps
